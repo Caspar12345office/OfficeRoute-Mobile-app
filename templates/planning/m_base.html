@@ -15,11 +15,14 @@
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff;--green:#5aab4e;--red:#c0533f}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#dfe4dd;color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#c9d2cc;color:var(--ink);-webkit-font-smoothing:antialiased;
+       display:flex;align-items:center;justify-content:center;min-height:100dvh}
   a{color:inherit;text-decoration:none}
-  .m-screen{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);display:flex;flex-direction:column;position:relative;box-shadow:0 0 40px rgba(0,0,0,.12)}
-  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
-  .m-top .brand{font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:14px}
+  .m-screen{width:100%;max-width:390px;height:100dvh;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+  /* op groot scherm: tonen als telefoon zodat we mobiel kunnen testen */
+  @media (min-height:760px){ .m-screen{height:96dvh;max-height:880px;border-radius:30px} }
+  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 13px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
+  .m-top .brand{font-weight:600;letter-spacing:.13em;text-transform:uppercase;font-size:13.5px}
   .m-top a{color:#cfe1da;font-size:12.5px}
   .m-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .m-pane{display:none;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}

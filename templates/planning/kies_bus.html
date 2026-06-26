@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0f3d3e">
+<title>Kies je bus · OfficeRoute</title>
+<style>
+  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC,U+2122}
+  :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#c9d2cc;color:var(--ink);-webkit-font-smoothing:antialiased}
+  .phone{max-width:390px;margin:0 auto;min-height:100vh;min-height:100dvh;background:linear-gradient(170deg,#0f3d3e,#15595a 60%,#0d3334);display:flex;flex-direction:column;color:#fff;box-shadow:0 0 50px rgba(0,0,0,.25)}
+  .hd{padding:calc(env(safe-area-inset-top) + 30px) 22px 6px}
+  .hd .brand{font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:13px;color:#bcdcd2}
+  .hd h1{font-size:25px;margin:14px 0 4px;font-weight:700}
+  .hd p{margin:0;color:#bcdcd2;font-size:14px}
+  .list{flex:1;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px);overflow:auto}
+  .bus{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);
+       border-radius:16px;padding:16px;margin-bottom:12px;color:#fff;font:inherit;cursor:pointer;transition:.15s}
+  .bus:hover{background:rgba(255,255,255,.13)}
+  .bus.sel{border-color:var(--gold);background:rgba(184,138,68,.18)}
+  .bus .ic{width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+  .bus .nm{font-weight:700;font-size:16px}
+  .bus .mt{font-size:12.5px;color:#bcdcd2;margin-top:2px}
+  .bus .chev{margin-left:auto;font-size:20px;color:#8fb3aa}
+  .foot{padding:0 18px calc(env(safe-area-inset-bottom) + 22px);color:#9fc0b7;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<form class="phone" method="post">
+  <div class="hd">
+    <div class="brand">OfficeRoute</div>
+    <h1>In welke bus rijd je?</h1>
+    <p>Kies je voertuig om je route van vandaag te zien.</p>
+  </div>
+  <div class="list">
+    {% for b in busses %}
+    <button class="bus {{ 'sel' if current==b.id }}" type="submit" name="bus_id" value="{{ b.id }}">
+      <span class="ic">🚐</span>
+      <span>
+        <span class="nm">{{ b.name }}</span>
+        <span class="mt">{{ b.plate }}{% if b.driver %} · {{ b.driver }}{% endif %}</span>
+      </span>
+      <span class="chev">›</span>
+    </button>
+    {% else %}
+    <p style="color:#bcdcd2">Geen bussen beschikbaar. Neem contact op met de planning.</p>
+    {% endfor %}
+  </div>
+  <div class="foot">Je kunt je bus later wisselen via het tabblad “Ik”.</div>
+</form>
+</body>
+</html>

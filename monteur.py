@@ -25,6 +25,42 @@ ROLE_LABELS = {"beheerder": "Beheerder", "manager": "Manager", "planner": "Plann
                "administratie": "Administratie", "monteur": "Monteur"}
 PERMISSION_KEYS = ["view_planning", "edit_planning", "monteur_app", "complete_deliveries"]
 
+# Dagelijks wisselende slogan (deterministisch op dag-van-het-jaar)
+DAILY_SLOGANS = [
+    "Zet 'm op vandaag! 💪", "Werkse! 🔧", "Rij voorzichtig 🚐", "Maak er een mooie dag van! ☀",
+    "Top dat je er bent! 🙌", "Veilig op weg 🛣", "Knal die route eraf! ⚡", "Met een glimlach de weg op 😄",
+    "Vandaag word je weer een held 🦸", "Rustig aan, kom veilig thuis 🏠", "Samen krijgen we het voor elkaar 🤝",
+    "Geniet van de rit 🎵", "Even doorpakken, jij kan dit! 🚀", "Fijne ritten gewenst 🧰",
+]
+
+
+def _daily_slogan():
+    return DAILY_SLOGANS[datetime.now().timetuple().tm_yday % len(DAILY_SLOGANS)]
+
+
+# Regio-bepaling op basis van de plaats van de stops
+REGION_BY_CITY = {
+    "breda": "Noord-Brabant", "tilburg": "Noord-Brabant", "eindhoven": "Noord-Brabant",
+    "den bosch": "Noord-Brabant", "'s-hertogenbosch": "Noord-Brabant", "helmond": "Noord-Brabant",
+    "rotterdam": "Zuid-Holland", "den haag": "Zuid-Holland", "delft": "Zuid-Holland",
+    "leiden": "Zuid-Holland", "dordrecht": "Zuid-Holland", "gouda": "Zuid-Holland",
+    "amsterdam": "Noord-Holland", "haarlem": "Noord-Holland", "alkmaar": "Noord-Holland",
+    "utrecht": "Utrecht", "amersfoort": "Utrecht", "nijmegen": "Gelderland", "arnhem": "Gelderland",
+    "antwerpen": "België", "gent": "België", "brussel": "België",
+}
+
+
+def _region_for(jobs):
+    counts = {}
+    for j in jobs:
+        city = (j["city"] or "").strip().lower()
+        reg = REGION_BY_CITY.get(city)
+        if reg:
+            counts[reg] = counts.get(reg, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=counts.get)
+
 DB_PATH = os.environ.get("PLANNING_OI_DB_PATH", "monteur.db")
 UPLOAD_DIR = os.environ.get("PLANNING_OI_UPLOADS", "oi_uploads")
 try:
@@ -181,6 +217,8 @@ CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT
 CREATE TABLE IF NOT EXISTS monteurs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, email TEXT,
   speed INTEGER DEFAULT 3, color TEXT, bus_id INTEGER, home_address TEXT, home_lat REAL, home_lng REAL,
   standard INTEGER DEFAULT 1, active INTEGER DEFAULT 1);
+CREATE TABLE IF NOT EXISTS busses(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, plate TEXT, driver TEXT,
+  max_volume REAL, max_weight REAL, max_stops INTEGER, apk_date TEXT, maintenance TEXT);
 CREATE TABLE IF NOT EXISTS clients(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, phone TEXT,
   address TEXT, postal TEXT, city TEXT, invoice_address TEXT, notes TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT, client_id INTEGER,
@@ -218,6 +256,10 @@ def init_db():
         try:
             if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
                 today = datetime.now().date().isoformat()
+                for b in [("Bus 1 - Mercedes Sprinter", "VND-12-A", "Rick"),
+                          ("Bus 2 - VW Crafter", "8-XGT-99", "Sven"),
+                          ("Bus 3 - Ford Transit", "GV-880-K", "Youssef")]:
+                    conn.execute("INSERT INTO busses(name,plate,driver) VALUES(?,?,?)", b)
                 conn.execute("INSERT INTO monteurs(name,phone,color,home_address,home_lat,home_lng) VALUES(?,?,?,?,?,?)",
                              ("Tom", "06-21110011", "#0f3d3e", "Ginnekenweg 200, Breda", 51.57, 4.78))
                 conn.execute("""INSERT INTO users(name,email,password,role,permissions,monteur_id,active,created_at)
@@ -353,18 +395,52 @@ def login():
 
 @bp.route("/logout")
 def logout():
-    session.pop("p_user_id", None); session.pop("twofa", None)
+    session.pop("p_user_id", None); session.pop("twofa", None); session.pop("bus_id", None)
     return redirect(url_for("planning.login"))
 
 
 # --------------------------------------------------------------------------- #
 #  Monteur-app
 # --------------------------------------------------------------------------- #
+def _busses():
+    conn = db()
+    rows = conn.execute("SELECT id,name,plate,driver FROM busses ORDER BY id").fetchall()
+    conn.close()
+    return rows
+
+
+def _current_bus():
+    bid = session.get("bus_id")
+    if not bid:
+        return None
+    conn = db()
+    b = conn.execute("SELECT id,name,plate FROM busses WHERE id=?", (bid,)).fetchone()
+    conn.close()
+    return b
+
+
+@bp.route("/kies-bus", methods=["GET", "POST"])
+def kies_bus():
+    guard = login_required("monteur_app")
+    if guard:
+        return guard
+    busses = _busses()
+    if request.method == "POST":
+        bid = request.form.get("bus_id")
+        if bid and any(str(b["id"]) == str(bid) for b in busses):
+            session["bus_id"] = int(bid)
+            return redirect(url_for("planning.monteur_app"))
+    return render_template("planning/kies_bus.html", busses=busses, current=session.get("bus_id"))
+
+
 @bp.route("/monteur")
 def monteur_app():
     guard = login_required("monteur_app")
     if guard:
         return guard
+    # Eerst een bus kiezen voordat het overzicht verschijnt
+    if not session.get("bus_id") and _busses():
+        return redirect(url_for("planning.kies_bus"))
     u = current_user()
     conn = db()
     mid = u["monteur_id"]
@@ -372,7 +448,7 @@ def monteur_app():
     jobs, monteur = [], None
     if mid:
         monteur = conn.execute("SELECT * FROM monteurs WHERE id=?", (mid,)).fetchone()
-        jobs = conn.execute("""SELECT p.*, o.id AS oid, o.order_number, o.delivery_address, o.phone, o.instructions,
+        jobs = conn.execute("""SELECT p.*, o.id AS oid, o.order_number, o.delivery_address, o.city, o.phone, o.instructions,
                                o.montage_min, o.service_type, o.pakbon, c.name AS client,
                                (SELECT GROUP_CONCAT(qty || 'x ' || name, ', ') FROM order_items WHERE order_id=o.id) AS items
                                FROM planning p JOIN orders o ON o.id=p.order_id
@@ -384,7 +460,8 @@ def monteur_app():
     alerts = route_alerts(mid, bool(jobs)) if mid else []
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
-                           closed=closed, all_done=all_done,
+                           closed=closed, all_done=all_done, region=_region_for(jobs),
+                           slogan=_daily_slogan(), bus=_current_bus(),
                            maps_ready=(integ_status("google_maps") == "verbonden"))
 
 

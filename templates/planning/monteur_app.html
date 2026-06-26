@@ -2,12 +2,16 @@
 {% block title %}Mijn route · OfficeRoute{% endblock %}
 {% block m_top %}<span class="brand">OfficeRoute</span>{% endblock %}
 {% block app_css %}
-  .dayhead{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
-  .dayhead .hi{font-size:13px;color:var(--muted)}
-  .dayhead h2{margin:1px 0 0;font-size:21px;color:var(--accent)}
-  .dayhead .sum{display:flex;gap:8px;margin-top:12px}
-  .dayhead .sum div{flex:1;background:var(--soft);border-radius:11px;padding:9px;text-align:center}
-  .dayhead .sum b{display:block;font-size:18px;color:var(--accent)}.dayhead .sum span{font-size:10.5px;color:var(--muted)}
+  .dayhead{background:linear-gradient(150deg,#11403f,#1a6364);color:#fff;border-radius:18px;padding:16px 17px;margin-bottom:14px;box-shadow:0 10px 24px rgba(15,61,62,.22)}
+  .dayhead .dhtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .dayhead .hi{font-size:12.5px;color:#bcdcd2;letter-spacing:.02em}
+  .dayhead .regio{background:rgba(184,138,68,.22);border:1px solid rgba(184,138,68,.5);color:#f1d9a8;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .dayhead h2{margin:8px 0 0;font-size:23px;color:#fff;font-weight:700}
+  .dayhead .slogan{margin-top:3px;font-size:14px;color:#e7f1ec}
+  .dayhead .busline{margin-top:11px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border-radius:10px;padding:7px 11px;font-size:13px;font-weight:600}
+  .dayhead .sum{display:flex;gap:8px;margin-top:13px}
+  .dayhead .sum div{flex:1;background:rgba(255,255,255,.12);border-radius:12px;padding:9px;text-align:center}
+  .dayhead .sum b{display:block;font-size:19px;color:#fff;font-weight:700}.dayhead .sum span{font-size:10.5px;color:#bcdcd2}
   .jc{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 6px 18px rgba(15,61,62,.05)}
   .jc.done{background:#eaf4e4;border-color:#cfe8c2;opacity:.8}
   .jc .r1{display:flex;align-items:center;gap:9px;margin-bottom:6px}
@@ -26,13 +30,11 @@
   .alert{display:flex;gap:9px;background:#fbeccd;border:1px solid #f0d49a;color:#7a5713;border-radius:13px;padding:12px 14px;margin-bottom:12px;font-size:13px}
   .alert b{display:block}
   .okbar{background:#eaf4e4;border:1px solid #cfe8c2;color:#3b6d11;border-radius:13px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
-  .weather-big{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;text-align:center;margin-bottom:12px}
-  .weather-big .t{font-size:40px;font-weight:800;color:var(--accent)}
   .ikrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
   .ikrow .av{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
   .ikrow b{font-size:16px}.ikrow span{font-size:12.5px;color:var(--muted)}
   .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:90}
-  .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px;max-height:92vh;overflow:auto}
+  .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px;max-height:92vh;overflow:auto}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
   .ov label{font-size:13px;font-weight:600;display:block;margin:10px 0 4px}
   .ov input,.ov select,.ov textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:15px}
@@ -48,12 +50,14 @@
     <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Vraag de beheerder je account aan een monteur te koppelen.</div></div>
   {% else %}
     <div class="dayhead">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="hi">Vandaag · {{ HOME_BASE }}</span><span class="mWeather" style="font-size:13px;color:var(--muted)">weer…</span></div>
+      <div class="dhtop"><span class="hi">Vandaag · {{ HOME_BASE }}</span>{% if region %}<span class="regio">📍 Regio {{ region }}</span>{% endif %}</div>
       <h2>Hoi {{ monteur.name }}</h2>
+      <div class="slogan">{{ slogan }}</div>
+      {% if bus %}<div class="busline">🚐 {{ bus.name }}{% if bus.plate %} · {{ bus.plate }}{% endif %}</div>{% endif %}
       <div class="sum">
         <div><b>{{ jobs|length }}</b><span>stops</span></div>
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
-        <div><b>{{ jobs|sum(attribute='montage_min') }}</b><span>min montage</span></div>
+        <div><b>{{ jobs|rejectattr('status','equalto','afgerond')|list|length }}</b><span>te gaan</span></div>
       </div>
     </div>
     {% if alerts %}<div class="alert">⚠ <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
@@ -67,7 +71,7 @@
       <div class="box items">📦 {{ j.items or '—' }}</div>
       {% if j.service_type=='ophalen' %}<div class="box note">📥 Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
       {% if j.instructions %}<div class="box note">📝 Van de planning: {{ j.instructions }}</div>{% endif %}
-      <div class="meta"><span class="pill">{{ j.montage_min }} min montage</span>{% if j.phone %}<a class="pill" href="tel:{{ j.phone }}">📞 bel klant</a>{% endif %}</div>
+      {% if j.phone %}<div class="meta"><a class="pill" href="tel:{{ j.phone }}">📞 bel klant</a></div>{% endif %}
       {% set q = j.delivery_address|urlencode %}
       <div class="navrow">
         <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ q }}">Google</a>
@@ -84,18 +88,20 @@
 
 <!-- MELDINGEN -->
 <div class="m-pane" id="pane-meldingen">
-  <div class="weather-big"><div class="t mWeather">…</div><div class="muted mWeatherNote" style="font-size:13px;color:var(--muted)">Actueel weer in {{ HOME_BASE }}</div></div>
+  <h3 style="margin:4px 2px 12px;font-size:17px;color:var(--accent)">Onderweg</h3>
   {% if alerts %}
     <div class="alert">⚠ <div><b>Files / werkzaamheden op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}Je aankomsttijden zijn bijgewerkt.</div></div>
   {% else %}
-    <div class="okbar">✓ Geen files of werkzaamheden op je route — je kunt vlot rijden.</div>
+    <div class="okbar">✓ Geen files of werkzaamheden op je route — je kunt vlot doorrijden.</div>
   {% endif %}
-  <p class="muted" style="font-size:12.5px;text-align:center">Beslissingen op je verlofaanvragen verschijnen automatisch als melding.</p>
+  <p class="muted" style="font-size:12.5px;text-align:center;margin-top:16px">Beslissingen op je verlofaanvragen verschijnen automatisch als melding.</p>
 </div>
 
 <!-- IK -->
 <div class="m-pane" id="pane-ik">
   <div class="ikrow"><div class="av">{{ (monteur.name[:1] if monteur else p_user.name[:1])|upper }}</div><div><b>{{ monteur.name if monteur else p_user.name }}</b><span>Monteur</span></div></div>
+  <div class="ikrow"><div class="av" style="font-size:22px">🚐</div><div><b>{{ bus.name if bus else 'Geen bus gekozen' }}</b><span>{{ bus.plate if bus else 'Kies je voertuig' }}</span></div>
+    <a class="btn-lg ghost" style="width:auto;margin-left:auto;padding:10px 14px;font-size:13px" href="{{ url_for('planning.kies_bus') }}">Wisselen</a></div>
   {% if monteur %}
   <div class="ikrow" style="justify-content:space-between"><div><b id="gpsState" style="font-size:14px">Live locatie uit</b><span>Deel je locatie zodat de planning je ziet rijden</span></div>
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
@@ -144,15 +150,6 @@
 
 {% block scripts %}
 <script>
-function wmoIcon(c){if(c===0)return'☀';if(c<=3)return'⛅';if(c<=48)return'🌫';if(c<=67)return'🌧';if(c<=77)return'🌨';if(c<=82)return'🌦';if(c<=99)return'⛈';return'☁';}
-(function(){
-  fetch('https://api.open-meteo.com/v1/forecast?latitude=51.57&longitude=4.77&current=temperature_2m,weather_code')
-    .then(function(r){return r.json();}).then(function(d){
-      var t=Math.round(d.current.temperature_2m), ic=wmoIcon(d.current.weather_code);
-      document.querySelectorAll('.mWeather').forEach(function(e){ e.textContent=ic+' '+t+'°'+(t>=25?' · warm':''); });
-      if(t>=25){ document.querySelectorAll('.mWeatherNote').forEach(function(e){e.textContent='Warm — zorg voor verkoeling onderweg.';}); }
-    }).catch(function(){});
-})();
 function startStop(pid){
   fetch('{{ url_for("planning.monteur_start", pid=0) }}'.slice(0,-1)+pid,{method:'POST'}).then(function(){ location.reload(); });
 }
