@@ -498,6 +498,37 @@ def manifest():
     return Response(json.dumps(data), mimetype="application/manifest+json")
 
 
+@bp.route("/__diag")
+def _diag():
+    """Tijdelijke diagnose: met welke database praat deze service en bestaat Tom daar?
+    Toont GEEN wachtwoorden. Verwijderen zodra het inloggen werkt."""
+    info = {"is_pg": IS_PG}
+    host = ""
+    try:
+        if _PG_URL:
+            m = _re.search(r'@([^/]+)/([^?]+)', _PG_URL)
+            if m:
+                host = m.group(1) + "/" + m.group(2)
+    except Exception:
+        pass
+    info["db"] = host or ("sqlite:" + DB_PATH)
+    try:
+        conn = db()
+        info["users"] = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        info["monteurs"] = conn.execute("SELECT COUNT(*) FROM monteurs").fetchone()[0]
+        info["planning"] = conn.execute("SELECT COUNT(*) FROM planning").fetchone()[0]
+        r = conn.execute("SELECT id,name,role,active,monteur_id FROM users WHERE lower(email)=?",
+                         ("tom@office-interior.nl",)).fetchone()
+        info["tom"] = ({"id": r["id"], "name": r["name"], "role": r["role"],
+                        "active": r["active"], "monteur_id": r["monteur_id"]} if r else None)
+        info["emails"] = [row["email"] for row in
+                          conn.execute("SELECT email FROM users ORDER BY id LIMIT 12").fetchall()]
+        conn.close()
+    except Exception as e:
+        info["error"] = str(e)
+    return jsonify(info)
+
+
 @bp.route("/sw.js")
 def service_worker():
     js = ("const C='officeroute-app-v1';"
