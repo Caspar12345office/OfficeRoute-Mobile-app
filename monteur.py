@@ -42,12 +42,31 @@ IS_PG = bool(_PG_URL)
 _NO_ID_TABLES = {"monteur_location", "route_closed", "integrations", "settings"}
 
 
+def _sub_placeholders(sql):
+    """Vervang '?'-parameters door '%s', maar laat vraagtekens BINNEN
+    string-literals ('…') met rust (anders telt psycopg te veel placeholders)."""
+    out = []
+    in_str = False
+    i, n = 0, len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch == "'":
+            out.append(ch)
+            if in_str and i + 1 < n and sql[i + 1] == "'":
+                out.append("'"); i += 2; continue
+            in_str = not in_str
+            i += 1; continue
+        out.append("%s" if (ch == "?" and not in_str) else ch)
+        i += 1
+    return "".join(out)
+
+
 def _xlate(sql):
     is_ignore = "INSERT OR IGNORE" in sql.upper()
     s = _re.sub(r'INSERT\s+OR\s+IGNORE\s+INTO', 'INSERT INTO', sql, flags=_re.I)
     s = s.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     s = s.replace("qty || 'x ' || name", "qty::text || 'x ' || name")
-    s = s.replace("?", "%s")
+    s = _sub_placeholders(s)
     s = _re.sub(r'\bLIKE\b', 'ILIKE', s)
     if is_ignore and "ON CONFLICT" not in s.upper():
         s += " ON CONFLICT DO NOTHING"
@@ -496,37 +515,6 @@ def manifest():
             "icons": [{"src": icon, "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"},
                       {"src": icon, "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}]}
     return Response(json.dumps(data), mimetype="application/manifest+json")
-
-
-@bp.route("/__diag")
-def _diag():
-    """Tijdelijke diagnose: met welke database praat deze service en bestaat Tom daar?
-    Toont GEEN wachtwoorden. Verwijderen zodra het inloggen werkt."""
-    info = {"is_pg": IS_PG}
-    host = ""
-    try:
-        if _PG_URL:
-            m = _re.search(r'@([^/]+)/([^?]+)', _PG_URL)
-            if m:
-                host = m.group(1) + "/" + m.group(2)
-    except Exception:
-        pass
-    info["db"] = host or ("sqlite:" + DB_PATH)
-    try:
-        conn = db()
-        info["users"] = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        info["monteurs"] = conn.execute("SELECT COUNT(*) FROM monteurs").fetchone()[0]
-        info["planning"] = conn.execute("SELECT COUNT(*) FROM planning").fetchone()[0]
-        r = conn.execute("SELECT id,name,role,active,monteur_id FROM users WHERE lower(email)=?",
-                         ("tom@office-interior.nl",)).fetchone()
-        info["tom"] = ({"id": r["id"], "name": r["name"], "role": r["role"],
-                        "active": r["active"], "monteur_id": r["monteur_id"]} if r else None)
-        info["emails"] = [row["email"] for row in
-                          conn.execute("SELECT email FROM users ORDER BY id LIMIT 12").fetchall()]
-        conn.close()
-    except Exception as e:
-        info["error"] = str(e)
-    return jsonify(info)
 
 
 @bp.route("/sw.js")
