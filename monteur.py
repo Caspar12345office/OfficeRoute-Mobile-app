@@ -66,6 +66,7 @@ def _xlate(sql):
     s = _re.sub(r'INSERT\s+OR\s+IGNORE\s+INTO', 'INSERT INTO', sql, flags=_re.I)
     s = s.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
     s = s.replace("qty || 'x ' || name", "qty::text || 'x ' || name")
+    s = _re.sub(r'GROUP_CONCAT\s*\(', 'string_agg(', s, flags=_re.I)  # SQLite -> PostgreSQL
     s = _sub_placeholders(s)
     s = _re.sub(r'\bLIKE\b', 'ILIKE', s)
     if is_ignore and "ON CONFLICT" not in s.upper():
