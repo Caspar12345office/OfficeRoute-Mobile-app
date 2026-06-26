@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0f3d3e">
+<link rel="manifest" href="{{ url_for('planning.manifest') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='oi-icon.svg') }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OfficeRoute">
+<title>{% block title %}OfficeRoute{% endblock %}</title>
+<style>
+  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff;--green:#5aab4e;--red:#c0533f}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#dfe4dd;color:var(--ink);-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .m-screen{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);display:flex;flex-direction:column;position:relative;box-shadow:0 0 40px rgba(0,0,0,.12)}
+  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+  .m-top .brand{font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:14px}
+  .m-top a{color:#cfe1da;font-size:12.5px}
+  .m-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .m-pane{display:none;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}
+  .m-pane.active{display:block}
+  .m-tabs{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+  .m-tabs a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0 8px;color:var(--muted);font-size:11px;font-weight:600}
+  .m-tabs a .ic{font-size:20px;line-height:1}
+  .m-tabs a.active{color:var(--accent)}
+  .m-tabs a .badge{position:absolute;transform:translate(12px,-4px);background:var(--red);color:#fff;border-radius:999px;font-size:10px;padding:0 5px;font-weight:700}
+  .btn-lg{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;text-align:center}
+  .btn-lg.primary{background:var(--accent);color:#fff}
+  .btn-lg.ghost{background:var(--panel);border:1.5px solid var(--line);color:var(--accent)}
+  .btn-lg.danger{background:var(--red);color:#fff}
+  .leavepop{position:fixed;inset:0;background:rgba(15,30,28,.5);display:flex;align-items:center;justify-content:center;z-index:120;padding:18px}
+  .leavepop .lb{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:360px;text-align:center}
+  .leavepop .lb .ic{font-size:36px}.leavepop .lb h3{margin:8px 0 4px;font-size:19px}.leavepop .lb p{font-size:14px;margin:0 0 16px}
+  {% block app_css %}{% endblock %}
+</style>
+</head>
+<body>
+<div class="m-screen">
+  <header class="m-top">{% block m_top %}<span class="brand">OfficeRoute</span>{% endblock %}<a href="{{ url_for('planning.logout') }}">Uitloggen</a></header>
+  <main class="m-content">
+    {% with msgs = get_flashed_messages() %}{% if msgs %}<div style="padding:10px 14px 0">{% for m in msgs %}<div style="background:#e3f3da;color:#3c7a2c;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:6px">{{ m }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <nav class="m-tabs">
+    <a class="active" data-tab="route" onclick="mtab(event,'route')"><span class="ic">🗺</span>Route</a>
+    <a data-tab="meldingen" onclick="mtab(event,'meldingen')"><span class="ic">🔔</span>Meldingen</a>
+    <a data-tab="ik" onclick="mtab(event,'ik')"><span class="ic">👤</span>Ik</a>
+  </nav>
+</div>
+
+{% if p_leave_decision %}{% set ld = p_leave_decision %}
+<div class="leavepop" id="leavePop">
+  <div class="lb">
+    <div class="ic">{{ '✅' if ld.status=='goedgekeurd' else '⛔' }}</div>
+    <h3 style="color:{{ '#3c7a2c' if ld.status=='goedgekeurd' else '#a23d2a' }}">Je aanvraag is {{ ld.status }}</h3>
+    <p>{% if ld.category=='afspraak' %}Afspraak op {{ ld.date_from }}{% if ld.time_from %} ({{ ld.time_from }}–{{ ld.time_to }}){% endif %}{% else %}{{ ld.leave_type }} · {{ ld.date_from }}{% if ld.date_to and ld.date_to!=ld.date_from %} t/m {{ ld.date_to }}{% endif %}{% endif %}
+    {% if ld.decision_reason %}<br><span style="color:var(--muted)">“{{ ld.decision_reason }}”</span>{% endif %}</p>
+    <button class="btn-lg primary" onclick="leaveSeen()">Begrepen</button>
+  </div>
+</div>
+<script>function leaveSeen(){fetch('{{ url_for("planning.api_leave_seen") }}',{method:'POST'}).then(function(){document.getElementById('leavePop').style.display='none';});}</script>
+{% endif %}
+
+<script>
+function mtab(ev, id){
+  document.querySelectorAll('.m-tabs a').forEach(function(a){a.classList.toggle('active', a.getAttribute('data-tab')===id);});
+  document.querySelectorAll('.m-pane').forEach(function(p){p.classList.toggle('active', p.id==='pane-'+id);});
+  document.querySelector('.m-content').scrollTop=0;
+}
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('{{ url_for("planning.service_worker") }}').catch(function(){}); }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

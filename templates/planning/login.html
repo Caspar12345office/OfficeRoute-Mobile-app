@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0f3d3e">
+<link rel="manifest" href="{{ url_for('planning.manifest') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='oi-icon.svg') }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="OfficeRoute">
+<title>OfficeRoute — Inloggen</title>
+<style>
+  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}
+  .wrap{width:100%;max-width:380px;margin:0 auto}
+  .logo{display:flex;align-items:center;gap:11px;margin-bottom:24px}
+  .logo .dot{width:42px;height:42px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center}
+  .logo .dot img{width:30px;height:30px}
+  .logo .wm{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:18px}
+  .logo small{display:block;font-size:10px;letter-spacing:.08em;color:#9fc2b9;text-transform:none}
+  h1{font-size:22px;margin:0 0 4px}
+  p.sub{color:#cfe1da;font-size:14px;margin:0 0 20px}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:#eaf3ee}
+  input{width:100%;padding:14px;border:0;border-radius:12px;font:inherit;font-size:16px;background:rgba(255,255,255,.95);color:#16302d}
+  .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:15px;background:#fff;color:#0f3d3e;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+  .err{background:rgba(192,83,63,.25);border:1px solid rgba(255,255,255,.25);border-radius:11px;padding:11px 14px;font-size:14px;margin-bottom:14px}
+  .demo{margin-top:22px;background:rgba(255,255,255,.1);border-radius:13px;padding:14px;font-size:13px;color:#eaf3ee}
+  .demo code{background:rgba(0,0,0,.2);border-radius:6px;padding:2px 6px}
+  .back{display:inline-block;margin-top:14px;color:#9fc2b9;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo"><span class="dot"><img src="{{ url_for('static', filename='oi-icon.svg') }}" alt=""></span><div><span class="wm">OfficeRoute</span><small>Monteur-app</small></div></div>
+
+  {% if show_2fa %}
+  <h1>Verificatie</h1>
+  <p class="sub">Voer de 6-cijferige code in voor <b>{{ twofa_email }}</b>.</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>Code</label>
+    <input type="text" name="twofa_code" inputmode="numeric" maxlength="6" placeholder="______" autofocus required style="letter-spacing:.4em;text-align:center;font-size:22px">
+    <button class="btn" type="submit">Inloggen</button>
+  </form>
+  {% if demo_code %}<div class="demo"><b>Demo:</b> je code is <code style="font-size:15px">{{ demo_code }}</code><div style="margin-top:5px;color:#9fc2b9">Live wordt deze per sms/e-mail of authenticator verstuurd.</div></div>{% endif %}
+  <a class="back" href="{{ url_for('planning.login') }}">← Opnieuw beginnen</a>
+  {% else %}
+  <h1>Welkom</h1>
+  <p class="sub">Log in om je route van vandaag te zien.</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="post">
+    <label>E-mailadres</label>
+    <input type="email" name="email" placeholder="jij@office-interior.nl" autofocus required>
+    <label>Wachtwoord</label>
+    <input type="password" name="password" placeholder="••••••••" required>
+    <button class="btn" type="submit">Volgende →</button>
+  </form>
+  {% endif %}
+</div>
+</body>
+</html>

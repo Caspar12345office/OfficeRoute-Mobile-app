@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+.secret_key
+oi_uploads/
+.venv/
