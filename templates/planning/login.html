@@ -43,7 +43,8 @@
 
   {% if show_2fa %}
   <h1>Verificatie</h1>
-  <p class="sub">Voer de 6-cijferige code in voor <b>{{ twofa_email }}</b>.</p>
+  {% if code_sent %}<p class="sub">We hebben een 6-cijferige code gemaild naar <b>{{ twofa_email }}</b>. Voer 'm hieronder in.</p>
+  {% else %}<p class="sub">Voer de 6-cijferige code in voor <b>{{ twofa_email }}</b>.</p>{% endif %}
   {% if error %}<div class="err">{{ error }}</div>{% endif %}
   <form method="post">
     <label>Code</label>
