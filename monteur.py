@@ -436,6 +436,8 @@ def _send_2fa_email(to_email, code, name=""):
     pwd = (c.get("smtp_pass") or "").strip()
     if not (host and user and pwd):
         return False
+    if (c.get("send_live") or "0") != "1":
+        return False   # testmodus: niets echt versturen
     msg = EmailMessage()
     msg["Subject"] = "Je OfficeRoute-inlogcode: %s" % code
     msg["From"] = "%s <%s>" % ((c.get("from_name") or "OfficeRoute").strip(), user)
@@ -820,6 +822,8 @@ def _smtp_send(to_list, subject, body, html=None):
     host = (cfg.get("smtp_host") or "").strip()
     if not host:
         return False
+    if (cfg.get("send_live") or "0") != "1":
+        return False   # testmodus: niets echt versturen
     user = (cfg.get("smtp_user") or "").strip()
     pwd = (cfg.get("smtp_pass") or "").strip()
     sender = user or "noreply@office-interior.nl"
