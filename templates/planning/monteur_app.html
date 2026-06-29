@@ -22,6 +22,7 @@
   .jc .box{font-size:13px;border-radius:9px;padding:8px 10px;margin-bottom:9px}
   .jc .box.items{background:var(--soft)}
   .jc .box.note{background:#fff8ef;border:1px solid #f0d49a;color:#7a5713}
+  .jc .box.cust{background:#e7f0ff;border:1px solid #b9d2f5;color:#1e477f;font-weight:600}
   .jc .meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
   .pill{background:var(--soft);color:var(--accent);border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:600}
   .navrow{display:flex;gap:7px;margin-bottom:9px}
@@ -100,6 +101,7 @@
       <div class="box items">📦 {{ j.items or '—' }}</div>
       {% if j.service_type=='ophalen' %}<div class="box note">📥 Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
       {% if j.instructions %}<div class="box note">📝 Van de planning: {{ j.instructions }}</div>{% endif %}
+      {% if j.customer_note %}<div class="box cust">📣 Bericht van klant: {{ j.customer_note }}</div>{% endif %}
       {% if j.phone %}<div class="meta"><a class="pill" href="tel:{{ j.phone }}">📞 bel klant</a></div>{% endif %}
       {% set q = j.delivery_address|urlencode %}
       <div class="navrow">
@@ -193,6 +195,25 @@
   <div id="biErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
   <div style="display:flex;gap:10px;margin-top:10px"><button class="btn-lg ghost" onclick="document.getElementById('busIssueModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitBusIssue(this)">Versturen</button></div>
 </div></div>
+
+{% if client_notes %}
+<div class="leavepop" id="custNotePop" style="display:none">
+  <div class="lb">
+    <div class="ic">📣</div>
+    <h3 style="color:var(--accent)">Bericht{{ 'en' if client_notes|length>1 else '' }} van klant{{ 'en' if client_notes|length>1 else '' }}</h3>
+    <div style="text-align:left;margin:8px 0 16px">
+      {% for n in client_notes %}
+      <div style="background:#e7f0ff;border:1px solid #b9d2f5;border-radius:11px;padding:10px 12px;margin-bottom:8px">
+        <b style="color:#1e477f;font-size:13px">{{ n.client }}</b>
+        <div style="color:#1e477f;font-size:13.5px;margin-top:2px">“{{ n.note }}”</div>
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn-lg primary" onclick="document.getElementById('custNotePop').style.display='none'">Begrepen</button>
+  </div>
+</div>
+<script>(function(){var k='oi-custnote-{{ client_notes|length }}';try{if(sessionStorage.getItem(k))return;}catch(e){}var el=document.getElementById('custNotePop');if(el)el.style.display='flex';try{sessionStorage.setItem(k,'1');}catch(e){}})();</script>
+{% endif %}
 
 <div class="leavepop" id="closeConfirm" style="display:none">
   <div class="lb"><div class="ic">🔒</div><h3 style="color:var(--accent)">Route afsluiten?</h3>

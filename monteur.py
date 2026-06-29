@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS clients(id INTEGER PRIMARY KEY AUTOINCREMENT, name TE
   address TEXT, postal TEXT, city TEXT, invoice_address TEXT, notes TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT, client_id INTEGER,
   source TEXT, is_draft INTEGER DEFAULT 0, status TEXT, delivery_address TEXT, city TEXT, postal TEXT,
-  invoice_address TEXT, phone TEXT, email TEXT, desired_date TEXT, notes TEXT, instructions TEXT,
+  invoice_address TEXT, phone TEXT, email TEXT, desired_date TEXT, notes TEXT, instructions TEXT, customer_note TEXT,
   amount REAL DEFAULT 0, volume REAL DEFAULT 0, weight REAL DEFAULT 0, montage_min INTEGER DEFAULT 30,
   service_type TEXT DEFAULT 'montage', pakbon TEXT, fulfilled INTEGER DEFAULT 0, fulfilled_at TEXT,
   shopify_id TEXT, created_at TEXT);
@@ -269,6 +269,11 @@ def init_db():
     conn = db()
     try:
         conn.executescript(SCHEMA)
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE orders ADD COLUMN customer_note TEXT")
         conn.commit()
     except Exception:
         pass
@@ -559,7 +564,7 @@ def monteur_app():
     if mid:
         monteur = conn.execute("SELECT * FROM monteurs WHERE id=?", (mid,)).fetchone()
         jobs = conn.execute("""SELECT p.*, o.id AS oid, o.order_number, o.delivery_address, o.city, o.phone, o.instructions,
-                               o.montage_min, o.service_type, o.pakbon, c.name AS client,
+                               o.montage_min, o.service_type, o.pakbon, o.customer_note, c.name AS client,
                                (SELECT GROUP_CONCAT(qty || 'x ' || name, ', ') FROM order_items WHERE order_id=o.id) AS items
                                FROM planning p JOIN orders o ON o.id=p.order_id
                                LEFT JOIN clients c ON c.id=o.client_id
@@ -569,9 +574,11 @@ def monteur_app():
     conn.close()
     alerts = route_alerts(mid, bool(jobs)) if mid else []
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
+    client_notes = [{"client": j["client"], "note": j["customer_note"]}
+                    for j in jobs if (j["customer_note"] or "").strip()]
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
                            closed=closed, all_done=all_done, region=_region_for(jobs),
-                           bus=_current_bus(), contacts=OFFICE_CONTACTS,
+                           bus=_current_bus(), contacts=OFFICE_CONTACTS, client_notes=client_notes,
                            maps_ready=(integ_status("google_maps") == "verbonden"))
 
 
