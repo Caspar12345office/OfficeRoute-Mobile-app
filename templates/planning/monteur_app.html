@@ -33,6 +33,11 @@
   .ikrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
   .ikrow .av{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
   .ikrow b{font-size:16px}.ikrow span{font-size:12.5px;color:var(--muted)}
+  .callrow{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:11px;color:var(--ink)}
+  .callrow .cav{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
+  .callrow .cinfo{display:flex;flex-direction:column}
+  .callrow .cinfo b{font-size:16px}.callrow .cinfo span{font-size:13px;color:var(--muted)}
+  .callrow .cbtn{margin-left:auto;background:var(--green);color:#fff;font-weight:700;font-size:13.5px;padding:10px 15px;border-radius:11px;white-space:nowrap}
   .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:90}
   .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px;max-height:92vh;overflow:auto}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
@@ -51,9 +56,9 @@
   {% else %}
     <div class="dayhead">
       <div class="dhtop"><span class="hi">Vandaag · {{ HOME_BASE }}</span>{% if region %}<span class="regio">📍 Regio {{ region }}</span>{% endif %}</div>
-      <h2>Hoi {{ monteur.name }}</h2>
-      <div class="slogan">{{ slogan }}</div>
-      {% if bus %}<div class="busline">🚐 {{ bus.name }}{% if bus.plate %} · {{ bus.plate }}{% endif %}</div>{% endif %}
+      <h2>Hoi {{ monteur.name }},</h2>
+      <div class="slogan">Werkse vandaag! 💪</div>
+      {% if bus %}<div class="busline">🚐 {{ bus.label }} · {{ bus.plate }}</div>{% endif %}
       <div class="sum">
         <div><b>{{ jobs|length }}</b><span>stops</span></div>
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
@@ -97,13 +102,26 @@
   <p class="muted" style="font-size:12.5px;text-align:center;margin-top:16px">Beslissingen op je verlofaanvragen verschijnen automatisch als melding.</p>
 </div>
 
+<!-- CONTACT -->
+<div class="m-pane" id="pane-contact">
+  <h3 style="margin:4px 2px 12px;font-size:17px;color:var(--accent)">Kantoor bellen</h3>
+  {% for c in contacts %}
+  <a class="callrow" href="tel:{{ c.phone|replace(' ','') }}">
+    <span class="cav">{{ c.name[:1]|upper }}</span>
+    <span class="cinfo"><b>{{ c.name }}</b><span>{{ c.phone }}</span></span>
+    <span class="cbtn">📞 Bellen</span>
+  </a>
+  {% endfor %}
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:14px">Eén tik en je belt direct — met je eigen telefoon en abonnement.</p>
+</div>
+
 <!-- IK -->
 <div class="m-pane" id="pane-ik">
   <div class="ikrow"><div class="av">{{ (monteur.name[:1] if monteur else p_user.name[:1])|upper }}</div><div><b>{{ monteur.name if monteur else p_user.name }}</b><span>Monteur</span></div></div>
-  <div class="ikrow"><div class="av" style="font-size:22px">🚐</div><div><b>{{ bus.name if bus else 'Geen bus gekozen' }}</b><span>{{ bus.plate if bus else 'Kies je voertuig' }}</span></div>
+  <div class="ikrow"><div class="av" style="font-size:22px">🚐</div><div><b>{{ bus.label if bus else 'Geen bus gekozen' }}</b><span>{{ bus.plate if bus else 'Kies je voertuig' }}</span></div>
     <a class="btn-lg ghost" style="width:auto;margin-left:auto;padding:10px 14px;font-size:13px" href="{{ url_for('planning.kies_bus') }}">Wisselen</a></div>
   {% if monteur %}
-  <div class="ikrow" style="justify-content:space-between"><div><b id="gpsState" style="font-size:14px">Live locatie uit</b><span>Deel je locatie zodat de planning je ziet rijden</span></div>
+  <div class="ikrow" id="ikGps" style="justify-content:space-between"><div><b id="gpsState" style="font-size:14px">Live locatie uit</b><span>Deel je locatie zodat de planning je ziet rijden</span></div>
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'">📅 Verlof / afspraak aanvragen</button>

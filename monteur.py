@@ -25,17 +25,27 @@ ROLE_LABELS = {"beheerder": "Beheerder", "manager": "Manager", "planner": "Plann
                "administratie": "Administratie", "monteur": "Monteur"}
 PERMISSION_KEYS = ["view_planning", "edit_planning", "monteur_app", "complete_deliveries"]
 
-# Dagelijks wisselende slogan (deterministisch op dag-van-het-jaar)
-DAILY_SLOGANS = [
-    "Zet 'm op vandaag! 💪", "Werkse! 🔧", "Rij voorzichtig 🚐", "Maak er een mooie dag van! ☀",
-    "Top dat je er bent! 🙌", "Veilig op weg 🛣", "Knal die route eraf! ⚡", "Met een glimlach de weg op 😄",
-    "Vandaag word je weer een held 🦸", "Rustig aan, kom veilig thuis 🏠", "Samen krijgen we het voor elkaar 🤝",
-    "Geniet van de rit 🎵", "Even doorpakken, jij kan dit! 🚀", "Fijne ritten gewenst 🧰",
+# Wagenpark — kentekens van onze vloot (buskeuze toont "Bus N" + kenteken, geen merk/chauffeur)
+FLEET = [
+    {"id": "bus1", "label": "Bus 1", "plate": "V-16-FGH"},
+    {"id": "bus2", "label": "Bus 2", "plate": "VLT-21-N"},
+    {"id": "bus3", "label": "Bus 3", "plate": "VVB-14-T"},
+    {"id": "bus4", "label": "Bus 4", "plate": "VSN-02-X"},
+    {"id": "bus5", "label": "Bus 5", "plate": "VTZ-73-G"},
+    {"id": "bus6", "label": "Bus 6", "plate": "VVL-09-B"},
+    {"id": "bus7", "label": "Bus 7", "plate": "V-95-DVF"},
+    {"id": "bus8", "label": "Bus 8", "plate": "VTZ-77-G"},
+    {"id": "bakwagen", "label": "Bakwagen", "plate": "VLD-03-F"},
 ]
+FLEET_BY_ID = {v["id"]: v for v in FLEET}
 
-
-def _daily_slogan():
-    return DAILY_SLOGANS[datetime.now().timetuple().tm_yday % len(DAILY_SLOGANS)]
+# Kantoorcollega's voor het Contact-tabblad (1-klik bellen via eigen provider)
+OFFICE_CONTACTS = [
+    {"name": "Yelith", "phone": "+31 6 82048377"},
+    {"name": "Thom", "phone": "+31 6 83257859"},
+    {"name": "Chris", "phone": "+31 6 44544713"},
+    {"name": "Jorik", "phone": "+31 6 10700901"},
+]
 
 
 # Regio-bepaling op basis van de plaats van de stops
@@ -241,6 +251,8 @@ CREATE TABLE IF NOT EXISTS leave_requests(id INTEGER PRIMARY KEY AUTOINCREMENT, 
   decided_at TEXT, decided_seen INTEGER DEFAULT 0, created_at TEXT);
 CREATE TABLE IF NOT EXISTS integrations(ikey TEXT, field TEXT, value TEXT, PRIMARY KEY(ikey, field));
 CREATE TABLE IF NOT EXISTS settings(skey TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS bus_choices(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_email TEXT,
+  user_name TEXT, bus_id TEXT, bus_label TEXT, plate TEXT, date TEXT, ts TEXT);
 """
 
 
@@ -395,28 +407,31 @@ def login():
 
 @bp.route("/logout")
 def logout():
-    session.pop("p_user_id", None); session.pop("twofa", None); session.pop("bus_id", None)
+    session.pop("p_user_id", None); session.pop("twofa", None)
+    session.pop("bus_id", None); session.pop("bus_done", None)
     return redirect(url_for("planning.login"))
 
 
 # --------------------------------------------------------------------------- #
 #  Monteur-app
 # --------------------------------------------------------------------------- #
-def _busses():
-    conn = db()
-    rows = conn.execute("SELECT id,name,plate,driver FROM busses ORDER BY id").fetchall()
-    conn.close()
-    return rows
-
-
 def _current_bus():
-    bid = session.get("bus_id")
-    if not bid:
-        return None
-    conn = db()
-    b = conn.execute("SELECT id,name,plate FROM busses WHERE id=?", (bid,)).fetchone()
-    conn.close()
-    return b
+    return FLEET_BY_ID.get(session.get("bus_id"))
+
+
+def _record_bus_choice(u, item):
+    """Leg vast (per login) in welke bus de monteur vandaag rijdt."""
+    if not u:
+        return
+    try:
+        conn = db()
+        conn.execute("""INSERT INTO bus_choices(user_id,user_email,user_name,bus_id,bus_label,plate,date,ts)
+                        VALUES(?,?,?,?,?,?,?,?)""",
+                     (u["id"], u["email"], u["name"], item["id"], item["label"], item["plate"],
+                      _today_iso(), datetime.now().isoformat(timespec="seconds")))
+        conn.commit(); conn.close()
+    except Exception:
+        pass
 
 
 @bp.route("/kies-bus", methods=["GET", "POST"])
@@ -424,13 +439,18 @@ def kies_bus():
     guard = login_required("monteur_app")
     if guard:
         return guard
-    busses = _busses()
     if request.method == "POST":
-        bid = request.form.get("bus_id")
-        if bid and any(str(b["id"]) == str(bid) for b in busses):
-            session["bus_id"] = int(bid)
+        if request.form.get("skip"):
+            session["bus_done"] = True
+            session.pop("bus_id", None)
             return redirect(url_for("planning.monteur_app"))
-    return render_template("planning/kies_bus.html", busses=busses, current=session.get("bus_id"))
+        item = FLEET_BY_ID.get(request.form.get("bus_id"))
+        if item:
+            session["bus_id"] = item["id"]
+            session["bus_done"] = True
+            _record_bus_choice(current_user(), item)
+            return redirect(url_for("planning.monteur_app"))
+    return render_template("planning/kies_bus.html", fleet=FLEET, current=session.get("bus_id"))
 
 
 @bp.route("/monteur")
@@ -438,8 +458,8 @@ def monteur_app():
     guard = login_required("monteur_app")
     if guard:
         return guard
-    # Eerst een bus kiezen voordat het overzicht verschijnt
-    if not session.get("bus_id") and _busses():
+    # Eerst een bus kiezen (of bewust overslaan) voordat het overzicht verschijnt
+    if not session.get("bus_done"):
         return redirect(url_for("planning.kies_bus"))
     u = current_user()
     conn = db()
@@ -461,7 +481,7 @@ def monteur_app():
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
                            closed=closed, all_done=all_done, region=_region_for(jobs),
-                           slogan=_daily_slogan(), bus=_current_bus(),
+                           bus=_current_bus(), contacts=OFFICE_CONTACTS,
                            maps_ready=(integ_status("google_maps") == "verbonden"))
 
 

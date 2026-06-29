@@ -9,46 +9,53 @@
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC,U+2122}
   :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#c9d2cc;color:var(--ink);-webkit-font-smoothing:antialiased}
-  .phone{max-width:390px;margin:0 auto;min-height:100vh;min-height:100dvh;background:linear-gradient(170deg,#0f3d3e,#15595a 60%,#0d3334);display:flex;flex-direction:column;color:#fff;box-shadow:0 0 50px rgba(0,0,0,.25)}
-  .hd{padding:calc(env(safe-area-inset-top) + 30px) 22px 6px}
-  .hd .brand{font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:13px;color:#bcdcd2}
-  .hd h1{font-size:25px;margin:14px 0 4px;font-weight:700}
-  .hd p{margin:0;color:#bcdcd2;font-size:14px}
-  .list{flex:1;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px);overflow:auto}
-  .bus{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);
-       border-radius:16px;padding:16px;margin-bottom:12px;color:#fff;font:inherit;cursor:pointer;transition:.15s}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#aeb9b2;color:var(--ink);-webkit-font-smoothing:antialiased;
+       display:flex;align-items:center;justify-content:center;min-height:100dvh}
+  .phone{width:min(393px,100vw);height:min(852px,100dvh);overflow:hidden;display:flex;flex-direction:column;
+         background:linear-gradient(170deg,#0f3d3e,#15595a 60%,#0d3334);color:#fff;box-shadow:0 22px 60px rgba(0,0,0,.32)}
+  @media (min-width:430px) and (min-height:760px){ .phone{border-radius:46px} }
+  .hd{padding:calc(env(safe-area-inset-top) + 26px) 22px 4px;flex-shrink:0}
+  .hd .brand{font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:12.5px;color:#bcdcd2}
+  .hd h1{font-size:23px;margin:12px 0 4px;font-weight:700}
+  .hd p{margin:0;color:#bcdcd2;font-size:13.5px}
+  .list{flex:1;padding:16px 16px 8px;overflow:auto}
+  .bus{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);
+       border-radius:15px;padding:13px 14px;margin-bottom:10px;color:#fff;font:inherit;cursor:pointer;transition:.15s}
   .bus:hover{background:rgba(255,255,255,.13)}
   .bus.sel{border-color:var(--gold);background:rgba(184,138,68,.18)}
-  .bus .ic{width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
-  .bus .nm{font-weight:700;font-size:16px}
-  .bus .mt{font-size:12.5px;color:#bcdcd2;margin-top:2px}
+  .bus .nm{font-weight:700;font-size:16px;min-width:78px}
+  /* Nederlands kenteken-plaatje */
+  .plate{display:inline-flex;align-items:center;background:#f6c50b;color:#13130a;border:1.5px solid #d8ad06;border-radius:6px;
+         font-weight:800;letter-spacing:.06em;font-size:15px;padding:5px 10px 4px;box-shadow:inset 9px 0 0 #2b5fd0}
+  .plate i{font-style:normal;color:#f6c50b;margin-right:7px;font-size:10px}
   .bus .chev{margin-left:auto;font-size:20px;color:#8fb3aa}
-  .foot{padding:0 18px calc(env(safe-area-inset-bottom) + 22px);color:#9fc0b7;font-size:12px;text-align:center}
+  .foot{padding:6px 16px calc(env(safe-area-inset-bottom) + 18px);flex-shrink:0}
+  .skip{display:block;width:100%;background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#eaf3ee;
+        border-radius:13px;padding:13px;font:inherit;font-weight:600;font-size:14.5px;cursor:pointer}
+  .skip:hover{background:rgba(255,255,255,.08)}
+  .foot .hint{color:#9fc0b7;font-size:11.5px;text-align:center;margin:10px 2px 0}
 </style>
 </head>
 <body>
-<form class="phone" method="post">
+<div class="phone">
   <div class="hd">
     <div class="brand">OfficeRoute</div>
     <h1>In welke bus rijd je?</h1>
     <p>Kies je voertuig om je route van vandaag te zien.</p>
   </div>
-  <div class="list">
-    {% for b in busses %}
+  <form method="post" class="list">
+    {% for b in fleet %}
     <button class="bus {{ 'sel' if current==b.id }}" type="submit" name="bus_id" value="{{ b.id }}">
-      <span class="ic">🚐</span>
-      <span>
-        <span class="nm">{{ b.name }}</span>
-        <span class="mt">{{ b.plate }}{% if b.driver %} · {{ b.driver }}{% endif %}</span>
-      </span>
+      <span class="nm">{{ b.label }}</span>
+      <span class="plate"><i>NL</i>{{ b.plate }}</span>
       <span class="chev">›</span>
     </button>
-    {% else %}
-    <p style="color:#bcdcd2">Geen bussen beschikbaar. Neem contact op met de planning.</p>
     {% endfor %}
-  </div>
-  <div class="foot">Je kunt je bus later wisselen via het tabblad “Ik”.</div>
-</form>
+  </form>
+  <form method="post" class="foot">
+    <button class="skip" type="submit" name="skip" value="1">Doorgaan zonder buskeuze</button>
+    <div class="hint">Geen route vandaag? Ga gewoon door — je kunt later alsnog een bus kiezen via “Ik”.</div>
+  </form>
+</div>
 </body>
 </html>
