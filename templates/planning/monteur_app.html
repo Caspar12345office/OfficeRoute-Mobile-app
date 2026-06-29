@@ -38,6 +38,8 @@
   .callrow .cinfo{display:flex;flex-direction:column}
   .callrow .cinfo b{font-size:16px}.callrow .cinfo span{font-size:13px;color:var(--muted)}
   .callrow .cbtn{margin-left:auto;background:var(--green);color:#fff;font-weight:700;font-size:13.5px;padding:10px 15px;border-radius:11px;white-space:nowrap}
+  .busissue{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid var(--line);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:999px;margin-bottom:12px;cursor:pointer}
+  .busissue:hover{color:var(--accent);border-color:var(--accent)}
   .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:90}
   .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px;max-height:92vh;overflow:auto}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
@@ -65,6 +67,7 @@
         <div><b>{{ jobs|rejectattr('status','equalto','afgerond')|list|length }}</b><span>te gaan</span></div>
       </div>
     </div>
+    <button class="busissue" onclick="openBusIssue()">🔧 Bus-issue melden</button>
     {% if alerts %}<div class="alert">⚠ <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
     {% if not jobs %}<div class="jc"><b>Geen leveringen vandaag.</b><div class="ad">Je route is leeg. Fijne dag!</div></div>{% endif %}
     {% for j in jobs %}
@@ -125,6 +128,7 @@
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'">📅 Verlof / afspraak aanvragen</button>
+  <button class="btn-lg ghost" style="margin-bottom:10px" onclick="openBusIssue()">🔧 Bus-issue melden</button>
   <a class="btn-lg ghost" href="{{ url_for('planning.logout') }}">Uitloggen</a>
   <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon → “Zet op beginscherm”.</p>
 </div>
@@ -156,6 +160,15 @@
     <label>Toelichting</label><textarea name="reason" rows="2" placeholder="bv. tandarts om 10:00"></textarea>
     <div style="display:flex;gap:10px;margin-top:12px"><button type="button" class="btn-lg ghost" onclick="document.getElementById('leaveModal').style.display='none'">Annuleren</button><button type="button" class="btn-lg primary" onclick="submitLeave(this)">Indienen</button></div>
   </form>
+</div></div>
+
+<div class="ov" id="busIssueModal"><div class="sheet">
+  <h3>Bus-issue melden</h3>
+  <div class="muted" style="font-size:13px;margin-bottom:6px">Gaat naar kantoor (Jorik &amp; Stijn) en verschijnt in de planning.</div>
+  <label>Wat is er met de bus?</label>
+  <textarea id="biMsg" rows="4" placeholder="Bijv. 'Ik hoor een piepje als ik harder rijd dan 50 km/u.'"></textarea>
+  <div id="biErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
+  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn-lg ghost" onclick="document.getElementById('busIssueModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitBusIssue(this)">Versturen</button></div>
 </div></div>
 
 <div class="leavepop" id="closeConfirm" style="display:none">
@@ -197,6 +210,15 @@ function submitLeave(btn){var fd=new URLSearchParams(new FormData(document.getEl
     .then(function(r){return r.json();}).then(function(res){if(res.ok){alert('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.');document.getElementById('leaveModal').style.display='none';}else{btn.disabled=false;alert(res.error||'Mislukt');}});}
 function confirmCloseRoute(){document.getElementById('closeConfirm').style.display='flex';}
 function doCloseRoute(){fetch('{{ url_for("planning.close_route") }}',{method:'POST'}).then(function(){location.reload();});}
+function openBusIssue(){document.getElementById('biMsg').value='';document.getElementById('biErr').style.display='none';document.getElementById('busIssueModal').style.display='flex';}
+function submitBusIssue(btn){var msg=document.getElementById('biMsg').value.trim();var err=document.getElementById('biErr');
+  if(!msg){err.textContent='Omschrijf het probleem even.';err.style.display='block';return;}
+  btn.disabled=true;
+  fetch('{{ url_for("planning.api_bus_issue") }}',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({message:msg}).toString()})
+    .then(function(r){return r.json();}).then(function(res){btn.disabled=false;
+      if(res.ok){document.getElementById('busIssueModal').style.display='none';
+        alert(res.emailed?'Bedankt! Je melding is naar kantoor gemaild en staat in de planning.':'Bedankt! Je melding staat in de planning op kantoor.');}
+      else{err.textContent=res.error||'Mislukt';err.style.display='block';}});}
 var gpsWatch=null;
 function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getElementById('gpsState');
   if(gpsWatch===null){if(!navigator.geolocation){alert('Geen GPS beschikbaar.');return;}

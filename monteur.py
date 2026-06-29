@@ -11,8 +11,9 @@ DB: PostgreSQL als DATABASE_URL is gezet (productie), anders lokaal SQLite (ontw
 from flask import (Blueprint, render_template, request, redirect, url_for, session,
                    flash, jsonify, Response, abort, send_from_directory)
 from werkzeug.security import check_password_hash, generate_password_hash
-import os, json, time, sqlite3, secrets
+import os, json, time, sqlite3, secrets, smtplib
 import re as _re
+from email.message import EmailMessage
 from datetime import datetime, timedelta
 
 # Endpoint-namespace 'planning' aangehouden zodat de gedeelde templates (url_for('planning.*')) werken.
@@ -46,6 +47,9 @@ OFFICE_CONTACTS = [
     {"name": "Chris", "phone": "+31 6 44544713"},
     {"name": "Jorik", "phone": "+31 6 10700901"},
 ]
+
+# Bus-issues gaan naar kantoor (Jorik & Stijn)
+BUS_ISSUE_RECIPIENTS = ["jorik@office-interior.nl", "stijn@office-interior.nl"]
 
 
 # Regio-bepaling op basis van de plaats van de stops
@@ -253,6 +257,9 @@ CREATE TABLE IF NOT EXISTS integrations(ikey TEXT, field TEXT, value TEXT, PRIMA
 CREATE TABLE IF NOT EXISTS settings(skey TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS bus_choices(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_email TEXT,
   user_name TEXT, bus_id TEXT, bus_label TEXT, plate TEXT, date TEXT, ts TEXT);
+CREATE TABLE IF NOT EXISTS bus_issues(id INTEGER PRIMARY KEY AUTOINCREMENT, monteur_id INTEGER, monteur_name TEXT,
+  reporter_email TEXT, bus_label TEXT, plate TEXT, message TEXT, status TEXT DEFAULT 'open',
+  created_at TEXT, resolved_by TEXT, resolved_at TEXT);
 """
 
 
@@ -587,6 +594,62 @@ def api_leave_seen():
     conn.commit()
     conn.close()
     return jsonify(ok=True)
+
+
+def _send_bus_issue_email(monteur_name, bus_label, plate, message):
+    """Best-effort e-mail naar kantoor (Jorik & Stijn). Gebruikt de SMTP-config uit de
+    gedeelde 'integrations'-tabel; als die niet is ingesteld (demo) slaan we het over —
+    het issue staat dan nog steeds in de planning-software."""
+    try:
+        conn = db()
+        cfg = {r["field"]: r["value"] for r in
+               conn.execute("SELECT field,value FROM integrations WHERE ikey=?", ("email",)).fetchall()}
+        conn.close()
+    except Exception:
+        cfg = {}
+    host = (cfg.get("smtp_host") or "").strip()
+    if not host:
+        return False
+    user = (cfg.get("smtp_user") or "").strip()
+    pwd = (cfg.get("smtp_pass") or "").strip()
+    sender = user or "noreply@office-interior.nl"
+    msg = EmailMessage()
+    msg["Subject"] = ("Bus-issue: %s %s" % (bus_label or "onbekende bus", plate or "")).strip()
+    msg["From"] = "%s <%s>" % ((cfg.get("from_name") or "OfficeRoute").strip(), sender)
+    msg["To"] = ", ".join(BUS_ISSUE_RECIPIENTS)
+    msg.set_content("%s meldt een probleem met %s (%s):\n\n%s\n\n— OfficeRoute monteur-app"
+                    % (monteur_name, bus_label or "—", plate or "—", message))
+    try:
+        with smtplib.SMTP(host, int(cfg.get("smtp_port") or 587), timeout=10) as s:
+            s.starttls()
+            if user and pwd:
+                s.login(user, pwd)
+            s.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
+@bp.route("/api/bus-issue", methods=["POST"])
+def api_bus_issue():
+    u = current_user()
+    if not u:
+        return jsonify(ok=False), 403
+    message = (request.form.get("message") or "").strip()
+    if not message:
+        return jsonify(ok=False, error="Omschrijf het probleem even."), 400
+    bus = _current_bus()
+    label = bus["label"] if bus else None
+    plate = bus["plate"] if bus else None
+    conn = db()
+    conn.execute("""INSERT INTO bus_issues(monteur_id,monteur_name,reporter_email,bus_label,plate,message,status,created_at)
+                    VALUES(?,?,?,?,?,?, 'open', ?)""",
+                 (u["monteur_id"], u["name"], u["email"], label, plate, message,
+                  datetime.now().isoformat(timespec="minutes")))
+    conn.commit()
+    conn.close()
+    emailed = _send_bus_issue_email(u["name"], label, plate, message)
+    return jsonify(ok=True, emailed=emailed)
 
 
 @bp.route("/pakbon/<int:oid>")
