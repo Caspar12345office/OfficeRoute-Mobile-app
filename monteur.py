@@ -707,12 +707,14 @@ def pakbon(oid):
 # --------------------------------------------------------------------------- #
 @bp.route("/manifest.webmanifest")
 def manifest():
-    icon = url_for("static", filename="oi-icon.svg")
+    i192 = url_for("static", filename="icon-192.png")
+    i512 = url_for("static", filename="icon-512.png")
     data = {"name": "OfficeRoute — Monteur", "short_name": "OfficeRoute",
             "start_url": "/monteur", "scope": "/", "display": "standalone",
             "background_color": "#0f3d3e", "theme_color": "#0f3d3e",
-            "icons": [{"src": icon, "sizes": "192x192", "type": "image/svg+xml", "purpose": "any"},
-                      {"src": icon, "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}]}
+            "icons": [{"src": i192, "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                      {"src": i512, "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                      {"src": i512, "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
     return Response(json.dumps(data), mimetype="application/manifest+json")
 
 
