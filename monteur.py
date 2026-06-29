@@ -622,27 +622,31 @@ def monteur_announce(pid):
     if not u or not has_perm("monteur_app"):
         return jsonify(ok=False), 403
     conn = db()
-    p = conn.execute("""SELECT p.id, o.client_id, o.email, c.name AS client
+    p = conn.execute("""SELECT p.id, o.client_id, o.email, o.order_number, c.name AS client
                         FROM planning p JOIN orders o ON o.id=p.order_id
                         LEFT JOIN clients c ON c.id=o.client_id
                         WHERE p.id=? AND p.monteur_id=?""", (pid, u["monteur_id"])).fetchone()
     if not p:
         conn.close()
         return jsonify(ok=False), 404
-    body = ("Beste %s,\n\nOnze monteur is onderweg naar u en verwacht binnen circa 20 minuten "
-            "aanwezig te zijn.\n\nMet vriendelijke groet,\nOffice-Interior" % (p["client"] or "klant"))
-    subject = "Onze monteur is onderweg naar u"
+    eta = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
+    track_url = "https://planning-o-i.onrender.com/track/%s" % p["order_number"]
+    subject = "Onze monteur is er bijna"
+    body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn. "
+            "U kunt hem live volgen via de link in deze e-mail.\n\nMet vriendelijke groet,\nOffice-Interior"
+            % (p["client"] or "klant", u["name"], eta))
     conn.execute("UPDATE planning SET arrival_mailed=1 WHERE id=?", (pid,))
     conn.execute("""INSERT INTO email_log(client_id,direction,subject,body,ts,has_attachment)
                     VALUES(?,?,?,?,?,0)""",
                  (p["client_id"], "out", subject, body, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()
-    html = _brand_email("Onze monteur is onderweg",
+    html = _brand_email("Onze monteur is er bijna",
                         ["Beste %s," % (p["client"] or "klant"),
-                         "Onze monteur is onderweg naar u en verwacht binnen circa 20 minuten aanwezig te zijn.",
-                         "Met vriendelijke groet,\nOffice-Interior"],
-                        info=[("Verwachte aankomst", "binnen ~20 minuten")])
+                         "Onze monteur is er bijna. U kunt hem live volgen via de knop hieronder."],
+                        info=[("Monteur", u["name"]), ("Verwachte aankomst", "rond %s" % eta),
+                              ("Ordernummer", "#%s" % p["order_number"])],
+                        button=("Volg live op de kaart", track_url))
     emailed = _smtp_send([p["email"]], subject, body, html)
     return jsonify(ok=True, emailed=emailed)
 
@@ -711,8 +715,8 @@ def api_leave_seen():
     return jsonify(ok=True)
 
 
-def _brand_email(heading, paragraphs, info=None, button=None):
-    """Nette HTML-klantmail in de Office-Interior-huisstijl (teal/goud)."""
+def _brand_email(heading, paragraphs, info=None, button=None, note=None):
+    """Nette HTML-klantmail in de OFFICE-INTERIOR-huisstijl (teal/goud)."""
     paras = ""
     for p in (paragraphs or []):
         if p:
@@ -726,12 +730,18 @@ def _brand_email(heading, paragraphs, info=None, button=None):
                      '<td style="padding:7px 2px;font-size:14px;color:#16302d;font-weight:bold;text-align:right;">'
                      + _esc(value) + '</td></tr>')
         info_html = ('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-                     'style="background:#eef3ec;border:1px solid #cfe0d7;border-radius:12px;margin:4px 0 18px;">'
+                     'style="background:#eef3ec;border:1px solid #cfe0d7;border-radius:12px;margin:4px 0 16px;">'
                      '<tr><td style="padding:8px 16px;"><table role="presentation" width="100%" cellpadding="0" '
                      'cellspacing="0">' + rows + '</table></td></tr></table>')
+    note_html = ""
+    if note:
+        note_html = ('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                     'style="background:#f7efe0;border:1px solid #e3c98f;border-radius:12px;margin:0 0 16px;">'
+                     '<tr><td style="padding:12px 14px;font-size:13px;color:#6b4e15;line-height:1.55;">'
+                     + _esc(note) + '</td></tr></table>')
     btn_html = ""
     if button:
-        btn_html = ('<table role="presentation" cellpadding="0" cellspacing="0" style="margin:2px 0 18px;">'
+        btn_html = ('<table role="presentation" cellpadding="0" cellspacing="0" style="margin:2px 0 16px;">'
                     '<tr><td style="background:#0f3d3e;border-radius:10px;">'
                     '<a href="' + _esc(button[1]) + '" style="display:inline-block;padding:12px 22px;color:#ffffff;'
                     'font-size:14px;font-weight:bold;text-decoration:none;">' + _esc(button[0]) + '</a></td></tr></table>')
@@ -739,16 +749,15 @@ def _brand_email(heading, paragraphs, info=None, button=None):
             'style="background:#f1ede5;padding:24px 0;margin:0;"><tr><td align="center">'
             '<table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;'
             'background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e6ebe4;font-family:Arial,Helvetica,sans-serif;">'
-            '<tr><td style="background:#0f3d3e;padding:20px 28px;">'
-            '<span style="color:#ffffff;font-size:19px;font-weight:bold;letter-spacing:1px;">Office-Interior</span>'
-            '<div style="color:#cda35a;font-size:11px;letter-spacing:.08em;margin-top:3px;">BEZORGING &amp; MONTAGE</div></td></tr>'
-            '<tr><td style="padding:28px 28px 4px;">'
+            '<tr><td style="background:#0f3d3e;padding:18px 28px;">'
+            '<span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:2px;">OFFICE-INTERIOR</span></td></tr>'
+            '<tr><td style="height:3px;background:#cda35a;"></td></tr>'
+            '<tr><td style="padding:26px 28px 4px;">'
             '<h1 style="margin:0 0 14px;font-size:20px;color:#0f3d3e;font-weight:bold;">' + _esc(heading) + '</h1>'
-            + paras + info_html + btn_html +
-            '</td></tr><tr><td style="padding:6px 28px 24px;">'
+            + paras + info_html + note_html + btn_html +
+            '</td></tr><tr><td style="padding:6px 28px 22px;">'
             '<p style="margin:10px 0 0;padding-top:14px;border-top:1px solid #eef0ec;font-size:12px;color:#8a948f;'
-            'line-height:1.6;">Vragen? Bel 085-0481444 of mail info@office-interior.com.<br>'
-            'Office-Interior &middot; Kantoorinrichting, bezorging &amp; montage</p></td></tr>'
+            'line-height:1.6;">Vragen? Mail planning@office-interior.com of bel 085-0481444.</p></td></tr>'
             '</table></td></tr></table>')
 
 
