@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="OfficeRoute">
 <title>{% block title %}OfficeRoute{% endblock %}</title>
+<script>/* thema zetten vóór render (geen flits) */(function(){try{var t=localStorage.getItem('oi-theme');if(!t){t=(window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <style>
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff;--green:#5aab4e;--red:#c0533f}
@@ -21,9 +22,9 @@
   /* iPhone 17 Pro-formaat (393 × 852) — op desktop als telefoon, op mobiel volledig scherm */
   .m-screen{width:min(393px,100vw);height:min(852px,100dvh);margin:0 auto;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 22px 60px rgba(0,0,0,.32)}
   @media (min-width:430px) and (min-height:760px){ .m-screen{border-radius:46px} }
-  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 13px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
+  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 13px;display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
   .m-top .brand{font-weight:600;letter-spacing:.13em;text-transform:uppercase;font-size:13.5px}
-  .m-top a{color:#cfe1da;font-size:12.5px}
+  .m-top a.logout{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#cfe1da;font-size:12.5px}
   .m-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .m-pane{display:none;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}
   .m-pane.active{display:block}
@@ -37,12 +38,28 @@
   .leavepop{position:fixed;inset:0;background:rgba(15,30,28,.5);display:flex;align-items:center;justify-content:center;z-index:120;padding:18px}
   .leavepop .lb{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:360px;text-align:center}
   .leavepop .lb .ic{font-size:36px}.leavepop .lb h3{margin:8px 0 4px;font-size:19px}.leavepop .lb p{font-size:14px;margin:0 0 16px}
+  .offbar{display:none;background:#7a5713;color:#fff;font-size:12.5px;font-weight:600;text-align:center;padding:8px 12px}
+  /* ---------- Donkere modus ---------- */
+  :root[data-theme="dark"]{--bg:#0f1f1c;--ink:#e8efe9;--muted:#9bafa6;--soft:#1a322d;--line:#274039;--panel:#16302b}
+  [data-theme="dark"] body{background:#06100e}
+  [data-theme="dark"] .m-tabs{background:#102420;border-top-color:#274039}
+  [data-theme="dark"] .btn-lg.ghost,[data-theme="dark"] .m-tabs a.active,[data-theme="dark"] .navrow a,
+  [data-theme="dark"] .pill,[data-theme="dark"] .jc .num,[data-theme="dark"] .callrow .cinfo b{color:#62d0c2}
+  [data-theme="dark"] .m-pane h3,[data-theme="dark"] .ov .sheet h3{color:#62d0c2 !important}
+  [data-theme="dark"] .jc.done{background:#13302a;border-color:#2c5a44}
+  [data-theme="dark"] .box.items{background:#1a322d}
+  [data-theme="dark"] .box.note,[data-theme="dark"] .alert{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  [data-theme="dark"] .okbar{background:#13302a;border-color:#2c5a44;color:#8fd07f}
+  [data-theme="dark"] .ov .sheet,[data-theme="dark"] .leavepop .lb{background:#16302b;color:var(--ink)}
+  [data-theme="dark"] .ov input,[data-theme="dark"] .ov select,[data-theme="dark"] .ov textarea{background:#0f1f1c;color:var(--ink);border-color:#274039}
+  [data-theme="dark"] #cmSig{background:#0f1f1c}
   {% block app_css %}{% endblock %}
 </style>
 </head>
 <body>
 <div class="m-screen">
-  <header class="m-top">{% block m_top %}<span class="brand">OfficeRoute</span>{% endblock %}<a href="{{ url_for('planning.logout') }}">Uitloggen</a></header>
+  <header class="m-top">{% block m_top %}<span class="brand">OfficeRoute</span>{% endblock %}<a class="logout" href="{{ url_for('planning.logout') }}">Uitloggen</a></header>
+  <div id="offlineBar" class="offbar"></div>
   <main class="m-content">
     {% with msgs = get_flashed_messages() %}{% if msgs %}<div style="padding:10px 14px 0">{% for m in msgs %}<div style="background:#e3f3da;color:#3c7a2c;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:6px">{{ m }}</div>{% endfor %}</div>{% endif %}{% endwith %}
     {% block content %}{% endblock %}
@@ -75,6 +92,39 @@ function mtab(ev, id){
   document.querySelector('.m-content').scrollTop=0;
 }
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('{{ url_for("planning.service_worker") }}').catch(function(){}); }
+
+/* ---------- Donkere modus ---------- */
+function toggleTheme(){var el=document.documentElement;var d=el.getAttribute('data-theme')!=='dark';
+  el.setAttribute('data-theme',d?'dark':'light');try{localStorage.setItem('oi-theme',d?'dark':'light');}catch(e){}syncThemeBtn();}
+function syncThemeBtn(){var b=document.getElementById('themeBtn');
+  if(b)b.textContent=(document.documentElement.getAttribute('data-theme')==='dark')?'☀ Lichte modus':'🌙 Donkere modus';}
+syncThemeBtn();
+
+/* ---------- Offline-bestendig: acties bewaren en later versturen ---------- */
+function oiQueueGet(){try{return JSON.parse(localStorage.getItem('oiQueue')||'[]');}catch(e){return [];}}
+function oiQueueSet(q){try{localStorage.setItem('oiQueue',JSON.stringify(q));}catch(e){}}
+function oiPost(url, body){
+  var enc=new URLSearchParams(body||{}).toString();
+  function queue(){var q=oiQueueGet();q.push({url:url,body:enc});oiQueueSet(q);updateOffline();return {ok:true,queued:true};}
+  if(!navigator.onLine){return Promise.resolve(queue());}
+  return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:enc})
+    .then(function(r){return r.json().catch(function(){return {ok:r.ok};});})
+    .catch(function(){return queue();});
+}
+function oiFlush(){
+  if(!navigator.onLine)return;var q=oiQueueGet();if(!q.length)return;oiQueueSet([]);
+  (function next(){if(!q.length){updateOffline();return;}var it=q.shift();
+    fetch(it.url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:it.body})
+      .then(function(){next();})
+      .catch(function(){var rest=oiQueueGet();rest.unshift(it);oiQueueSet(rest);updateOffline();});})();
+}
+function updateOffline(){var bar=document.getElementById('offlineBar');if(!bar)return;var q=oiQueueGet();
+  if(!navigator.onLine){bar.style.display='block';bar.textContent='📴 Geen verbinding — je acties worden bewaard en later verstuurd.';}
+  else if(q.length){bar.style.display='block';bar.textContent='🔄 Verbinding terug — '+q.length+' actie(s) worden verstuurd…';setTimeout(updateOffline,2500);}
+  else{bar.style.display='none';}}
+window.addEventListener('online',function(){updateOffline();oiFlush();});
+window.addEventListener('offline',updateOffline);
+updateOffline(); oiFlush();
 </script>
 {% block scripts %}{% endblock %}
 </body>

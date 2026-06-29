@@ -46,13 +46,34 @@
   .ov label{font-size:13px;font-weight:600;display:block;margin:10px 0 4px}
   .ov input,.ov select,.ov textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:15px}
   #cmSig{width:100%;height:140px;border:1px solid var(--line);border-radius:10px;background:#fff;touch-action:none}
+  .daysum{background:linear-gradient(150deg,#11403f,#1a6364);color:#fff;border-radius:18px;padding:30px 20px;text-align:center;box-shadow:0 10px 24px rgba(15,61,62,.22)}
+  .daysum .ic{font-size:46px}
+  .daysum h2{margin:8px 0 2px;font-size:24px}
+  .daysum p{margin:0;color:#cfe6df;font-size:14px}
+  .daysum .sum{display:flex;gap:8px;margin:16px 0 6px}
+  .daysum .sum div{flex:1;background:rgba(255,255,255,.12);border-radius:12px;padding:11px}
+  .daysum .sum b{display:block;font-size:22px;font-weight:700}.daysum .sum span{font-size:10.5px;color:#bcdcd2}
+  .daysum .muted2{margin-top:10px;color:#9fc0b7;font-size:13px}
+  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#11403f;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88%;text-align:center}
+  .toast.show{opacity:1}
+  .annsent{color:var(--green)!important;border-color:var(--green)!important}
 {% endblock %}
 
 {% block content %}
 <!-- ROUTE -->
 <div class="m-pane active" id="pane-route">
   {% if closed %}
-    <div class="jc" style="text-align:center;padding:30px 16px"><div style="font-size:38px">🔒</div><b style="font-size:17px">Route afgesloten</b><div class="ad" style="margin-top:4px">De klantgegevens van vandaag zijn gewist. Fijne dag!</div></div>
+    <div class="daysum">
+      <div class="ic">✅</div>
+      <h2>Mooi werk{% if monteur %}, {{ monteur.name }}{% endif %}!</h2>
+      <p>Je route van vandaag zit erop.</p>
+      <div class="sum">
+        <div><b>{{ jobs|length }}</b><span>stops</span></div>
+        <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
+        {% if bus %}<div><b style="font-size:14px">{{ bus.plate }}</b><span>{{ bus.label }}</span></div>{% endif %}
+      </div>
+      <p class="muted2">Fijne avond — tot morgen! 👋</p>
+    </div>
   {% elif not monteur %}
     <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Vraag de beheerder je account aan een monteur te koppelen.</div></div>
   {% else %}
@@ -86,6 +107,7 @@
         <a target="_blank" href="https://maps.apple.com/?daddr={{ q }}">Apple</a>
         <a target="_blank" href="https://waze.com/ul?q={{ q }}&navigate=yes">Waze</a>
       </div>
+      {% if j.status!='afgerond' %}<button class="btn-lg ghost" style="margin-bottom:8px" id="ann{{ j.id }}" onclick="announce({{ j.id }},this)">📣 Klant: ik kom eraan</button>{% endif %}
       {% if j.status=='gepland' %}<button class="btn-lg ghost" style="margin-bottom:8px" onclick="startStop({{ j.id }})">🚗 Onderweg naar deze klant</button>{% endif %}
       {% if j.status!='afgerond' %}<button class="btn-lg primary" onclick="openComplete({{ j.id }}, '{{ j.client|e }}')">Levering afronden</button>{% endif %}
     </div>
@@ -129,6 +151,7 @@
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'">📅 Verlof / afspraak aanvragen</button>
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="openBusIssue()">🔧 Bus-issue melden</button>
+  <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()">🌙 Donkere modus</button>
   <a class="btn-lg ghost" href="{{ url_for('planning.logout') }}">Uitloggen</a>
   <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon → “Zet op beginscherm”.</p>
 </div>
@@ -173,7 +196,7 @@
 
 <div class="leavepop" id="closeConfirm" style="display:none">
   <div class="lb"><div class="ic">🔒</div><h3 style="color:var(--accent)">Route afsluiten?</h3>
-    <p>Weet je het zeker? De klantgegevens van vandaag worden gewist (privacy).</p>
+    <p>Je rondde vandaag <b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b> van <b>{{ jobs|length }}</b> stops af.<br>De klantgegevens van vandaag worden gewist (privacy).</p>
     <div style="display:flex;gap:10px"><button class="btn-lg ghost" onclick="document.getElementById('closeConfirm').style.display='none'">Nee</button><button class="btn-lg danger" onclick="doCloseRoute()">Ja, sluit route</button></div>
   </div>
 </div>
@@ -181,8 +204,24 @@
 
 {% block scripts %}
 <script>
+var U_START='{{ url_for("planning.monteur_start", pid=0) }}';
+var U_COMPLETE='{{ url_for("planning.monteur_complete", pid=0) }}';
+var U_ANNOUNCE='{{ url_for("planning.monteur_announce", pid=0) }}';
+var U_CLOSE='{{ url_for("planning.close_route") }}';
+var U_LEAVE='{{ url_for("planning.api_leave_request") }}';
+var U_BUSISSUE='{{ url_for("planning.api_bus_issue") }}';
+function toast(msg){var t=document.getElementById('oiToast');if(!t){t=document.createElement('div');t.id='oiToast';t.className='toast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
 function startStop(pid){
-  fetch('{{ url_for("planning.monteur_start", pid=0) }}'.slice(0,-1)+pid,{method:'POST'}).then(function(){ location.reload(); });
+  oiPost(U_START.slice(0,-1)+pid,{}).then(function(res){
+    if(res.queued){toast('Bewaard — wordt verstuurd zodra je online bent');}else{location.reload();}});
+}
+function announce(pid, btn){
+  btn.disabled=true;
+  oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).then(function(res){
+    if(res.ok!==false){btn.classList.add('annsent');btn.textContent='✓ Klant geïnformeerd';
+      toast(res.queued?'Bewaard — klant wordt geïnformeerd zodra je online bent':(res.emailed?'Klant is per e-mail geïnformeerd':'Klant geïnformeerd (staat in de planning)'));}
+    else{btn.disabled=false;toast('Mislukt — probeer opnieuw');}});
 }
 var sigCtx=null, sigDrawn=false;
 function openComplete(pid, client){
@@ -200,25 +239,29 @@ function submitComplete(){
   var sig=(oc==='succesvol'&&sigDrawn)?document.getElementById('cmSig').toDataURL('image/png'):'';
   var err=document.getElementById('cmErr');
   if(oc==='succesvol'&&(!receiver||!sig)){err.textContent='Vul de naam in én laat de ontvanger tekenen.';err.style.display='block';return;}
-  var fd=new URLSearchParams({receiver:receiver,signature:sig,outcome:oc,sub_outcome:sub});
-  fetch('{{ url_for("planning.monteur_complete", pid=0) }}'.slice(0,-1)+pid,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
-    .then(function(r){return r.json();}).then(function(res){if(res.ok)location.reload();else{err.textContent=res.error||'Mislukt';err.style.display='block';}});
+  oiPost(U_COMPLETE.slice(0,-1)+pid,{receiver:receiver,signature:sig,outcome:oc,sub_outcome:sub}).then(function(res){
+    if(res.queued){document.getElementById('completeModal').style.display='none';toast('Levering bewaard — wordt verstuurd zodra je online bent');}
+    else if(res.ok){location.reload();}
+    else{err.textContent=res.error||'Mislukt';err.style.display='block';}});
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
-function submitLeave(btn){var fd=new URLSearchParams(new FormData(document.getElementById('leaveForm')));btn.disabled=true;
-  fetch('{{ url_for("planning.api_leave_request") }}',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
-    .then(function(r){return r.json();}).then(function(res){if(res.ok){alert('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.');document.getElementById('leaveModal').style.display='none';}else{btn.disabled=false;alert(res.error||'Mislukt');}});}
+function submitLeave(btn){var obj={};new FormData(document.getElementById('leaveForm')).forEach(function(v,k){obj[k]=v;});btn.disabled=true;
+  oiPost(U_LEAVE,obj).then(function(res){
+    if(res.queued){document.getElementById('leaveModal').style.display='none';alert('Aanvraag bewaard — wordt verstuurd zodra je online bent.');}
+    else if(res.ok){alert('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.');document.getElementById('leaveModal').style.display='none';}
+    else{btn.disabled=false;alert(res.error||'Mislukt');}});}
 function confirmCloseRoute(){document.getElementById('closeConfirm').style.display='flex';}
-function doCloseRoute(){fetch('{{ url_for("planning.close_route") }}',{method:'POST'}).then(function(){location.reload();});}
+function doCloseRoute(){oiPost(U_CLOSE,{}).then(function(res){
+  if(res.queued){document.getElementById('closeConfirm').style.display='none';toast('Route-afsluiting bewaard — wordt verstuurd zodra je online bent');}
+  else{location.reload();}});}
 function openBusIssue(){document.getElementById('biMsg').value='';document.getElementById('biErr').style.display='none';document.getElementById('busIssueModal').style.display='flex';}
 function submitBusIssue(btn){var msg=document.getElementById('biMsg').value.trim();var err=document.getElementById('biErr');
   if(!msg){err.textContent='Omschrijf het probleem even.';err.style.display='block';return;}
   btn.disabled=true;
-  fetch('{{ url_for("planning.api_bus_issue") }}',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({message:msg}).toString()})
-    .then(function(r){return r.json();}).then(function(res){btn.disabled=false;
-      if(res.ok){document.getElementById('busIssueModal').style.display='none';
-        alert(res.emailed?'Bedankt! Je melding is naar kantoor gemaild en staat in de planning.':'Bedankt! Je melding staat in de planning op kantoor.');}
-      else{err.textContent=res.error||'Mislukt';err.style.display='block';}});}
+  oiPost(U_BUSISSUE,{message:msg}).then(function(res){btn.disabled=false;
+    if(res.ok!==false){document.getElementById('busIssueModal').style.display='none';
+      alert(res.queued?'Bewaard — je melding wordt verstuurd zodra je online bent.':(res.emailed?'Bedankt! Je melding is naar kantoor gemaild en staat in de planning.':'Bedankt! Je melding staat in de planning op kantoor.'));}
+    else{err.textContent=res.error||'Mislukt';err.style.display='block';}});}
 var gpsWatch=null;
 function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getElementById('gpsState');
   if(gpsWatch===null){if(!navigator.geolocation){alert('Geen GPS beschikbaar.');return;}

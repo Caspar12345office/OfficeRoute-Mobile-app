@@ -24,10 +24,13 @@
   .bus:hover{background:rgba(255,255,255,.13)}
   .bus.sel{border-color:var(--gold);background:rgba(184,138,68,.18)}
   .bus .nm{font-weight:700;font-size:16px;min-width:78px}
-  /* Nederlands kenteken-plaatje */
-  .plate{display:inline-flex;align-items:center;background:#f6c50b;color:#13130a;border:1.5px solid #d8ad06;border-radius:6px;
-         font-weight:800;letter-spacing:.06em;font-size:15px;padding:5px 10px 4px;box-shadow:inset 9px 0 0 #2b5fd0}
-  .plate i{font-style:normal;color:#f6c50b;margin-right:7px;font-size:10px}
+  /* Realistisch Nederlands kenteken */
+  .plate{display:inline-flex;align-items:stretch;height:32px;border:2px solid #0a0a0a;border-radius:6px;overflow:hidden;
+         background:#f3cd00;box-shadow:0 1px 3px rgba(0,0,0,.45);font-family:Arial,'Helvetica Neue',sans-serif}
+  .plate .eu{background:#003399;display:flex;flex-direction:column;align-items:center;justify-content:center;width:19px;padding-top:2px}
+  .plate .eu .st{font-size:7px;line-height:1;color:#ffcc00}
+  .plate .eu .nl{font-size:8.5px;font-weight:700;line-height:1;color:#fff;margin-top:1px;letter-spacing:.02em}
+  .plate .pl{display:flex;align-items:center;padding:0 9px;color:#0a0a0a;font-weight:800;font-size:18px;letter-spacing:.12em}
   .bus .chev{margin-left:auto;font-size:20px;color:#8fb3aa}
   .foot{padding:6px 16px calc(env(safe-area-inset-bottom) + 18px);flex-shrink:0}
   .skip{display:block;width:100%;background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#eaf3ee;
@@ -47,7 +50,7 @@
     {% for b in fleet %}
     <button class="bus {{ 'sel' if current==b.id }}" type="submit" name="bus_id" value="{{ b.id }}">
       <span class="nm">{{ b.label }}</span>
-      <span class="plate"><i>NL</i>{{ b.plate }}</span>
+      <span class="plate"><span class="eu"><span class="st">★</span><span class="nl">NL</span></span><span class="pl">{{ b.plate }}</span></span>
       <span class="chev">›</span>
     </button>
     {% endfor %}

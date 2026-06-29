@@ -260,6 +260,8 @@ CREATE TABLE IF NOT EXISTS bus_choices(id INTEGER PRIMARY KEY AUTOINCREMENT, use
 CREATE TABLE IF NOT EXISTS bus_issues(id INTEGER PRIMARY KEY AUTOINCREMENT, monteur_id INTEGER, monteur_name TEXT,
   reporter_email TEXT, bus_label TEXT, plate TEXT, message TEXT, status TEXT DEFAULT 'open',
   created_at TEXT, resolved_by TEXT, resolved_at TEXT);
+CREATE TABLE IF NOT EXISTS email_log(id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, direction TEXT,
+  subject TEXT, body TEXT, ts TEXT, has_attachment INTEGER DEFAULT 0);
 """
 
 
@@ -532,6 +534,33 @@ def monteur_start(pid):
     return jsonify(ok=True)
 
 
+@bp.route("/monteur/announce/<int:pid>", methods=["POST"])
+def monteur_announce(pid):
+    """'Ik kom eraan' — informeer de klant (e-mail best-effort) en log het zodat kantoor het ziet."""
+    u = current_user()
+    if not u or not has_perm("monteur_app"):
+        return jsonify(ok=False), 403
+    conn = db()
+    p = conn.execute("""SELECT p.id, o.client_id, o.email, c.name AS client
+                        FROM planning p JOIN orders o ON o.id=p.order_id
+                        LEFT JOIN clients c ON c.id=o.client_id
+                        WHERE p.id=? AND p.monteur_id=?""", (pid, u["monteur_id"])).fetchone()
+    if not p:
+        conn.close()
+        return jsonify(ok=False), 404
+    body = ("Beste %s,\n\nOnze monteur is onderweg naar u en verwacht binnen circa 20 minuten "
+            "aanwezig te zijn.\n\nMet vriendelijke groet,\nOffice-Interior" % (p["client"] or "klant"))
+    conn.execute("UPDATE planning SET arrival_mailed=1 WHERE id=?", (pid,))
+    conn.execute("""INSERT INTO email_log(client_id,direction,subject,body,ts,has_attachment)
+                    VALUES(?,?,?,?,?,0)""",
+                 (p["client_id"], "out", "Onze monteur is onderweg naar u", body,
+                  datetime.now().isoformat(timespec="minutes")))
+    conn.commit()
+    conn.close()
+    emailed = _smtp_send([p["email"]], "Onze monteur is onderweg naar u", body)
+    return jsonify(ok=True, emailed=emailed)
+
+
 @bp.route("/monteur/close-route", methods=["POST"])
 def close_route():
     u = current_user()
@@ -596,10 +625,12 @@ def api_leave_seen():
     return jsonify(ok=True)
 
 
-def _send_bus_issue_email(monteur_name, bus_label, plate, message):
-    """Best-effort e-mail naar kantoor (Jorik & Stijn). Gebruikt de SMTP-config uit de
-    gedeelde 'integrations'-tabel; als die niet is ingesteld (demo) slaan we het over —
-    het issue staat dan nog steeds in de planning-software."""
+def _smtp_send(to_list, subject, body):
+    """Best-effort e-mail via de SMTP-config uit de gedeelde 'integrations'-tabel.
+    Niet ingesteld (demo) -> False; de actie is dan nog steeds in de software vastgelegd."""
+    to_list = [t for t in (to_list or []) if t]
+    if not to_list:
+        return False
     try:
         conn = db()
         cfg = {r["field"]: r["value"] for r in
@@ -614,11 +645,10 @@ def _send_bus_issue_email(monteur_name, bus_label, plate, message):
     pwd = (cfg.get("smtp_pass") or "").strip()
     sender = user or "noreply@office-interior.nl"
     msg = EmailMessage()
-    msg["Subject"] = ("Bus-issue: %s %s" % (bus_label or "onbekende bus", plate or "")).strip()
+    msg["Subject"] = subject
     msg["From"] = "%s <%s>" % ((cfg.get("from_name") or "OfficeRoute").strip(), sender)
-    msg["To"] = ", ".join(BUS_ISSUE_RECIPIENTS)
-    msg.set_content("%s meldt een probleem met %s (%s):\n\n%s\n\n— OfficeRoute monteur-app"
-                    % (monteur_name, bus_label or "—", plate or "—", message))
+    msg["To"] = ", ".join(to_list)
+    msg.set_content(body)
     try:
         with smtplib.SMTP(host, int(cfg.get("smtp_port") or 587), timeout=10) as s:
             s.starttls()
@@ -628,6 +658,14 @@ def _send_bus_issue_email(monteur_name, bus_label, plate, message):
         return True
     except Exception:
         return False
+
+
+def _send_bus_issue_email(monteur_name, bus_label, plate, message):
+    """E-mail naar kantoor (Jorik & Stijn) over een gemeld bus-probleem."""
+    return _smtp_send(BUS_ISSUE_RECIPIENTS,
+                      ("Bus-issue: %s %s" % (bus_label or "onbekende bus", plate or "")).strip(),
+                      "%s meldt een probleem met %s (%s):\n\n%s\n\n— OfficeRoute monteur-app"
+                      % (monteur_name, bus_label or "—", plate or "—", message))
 
 
 @bp.route("/api/bus-issue", methods=["POST"])
