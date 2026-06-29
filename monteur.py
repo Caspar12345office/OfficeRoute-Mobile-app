@@ -13,6 +13,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for, sessi
 from werkzeug.security import check_password_hash, generate_password_hash
 import os, json, time, sqlite3, secrets, smtplib
 import re as _re
+import urllib.request, urllib.error
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 
@@ -392,8 +393,58 @@ def _email_cfg():
 
 def _email_configured():
     c = _email_cfg()
-    return bool((c.get("smtp_host") or "").strip() and (c.get("smtp_user") or "").strip()
-                and (c.get("smtp_pass") or "").strip())
+    from_email = (c.get("from_email") or c.get("smtp_user") or "").strip()
+    has_resend = bool((c.get("resend_api_key") or "").strip() and from_email)
+    has_smtp = bool((c.get("smtp_host") or "").strip() and (c.get("smtp_user") or "").strip()
+                    and (c.get("smtp_pass") or "").strip())
+    return has_resend or has_smtp
+
+
+def _api_send(to, subject, text, html=None):
+    """Verstuur via Resend HTTPS-API (werkt op Render); anders SMTP (lokaal). Respecteert testmodus.
+    Leest de gedeelde 'email'-integratie (beheerd in de kantoor-app)."""
+    recips = [r for r in (to if isinstance(to, list) else [to]) if r]
+    if not recips:
+        return False
+    c = _email_cfg()
+    if (c.get("send_live") or "0") != "1":
+        return False   # testmodus
+    from_email = (c.get("from_email") or c.get("smtp_user") or "").strip()
+    if not from_email:
+        return False
+    frm = "%s <%s>" % ((c.get("from_name") or "Office-Interior").strip(), from_email)
+    key = (c.get("resend_api_key") or "").strip()
+    if key:
+        try:
+            payload = json.dumps({"from": frm, "to": recips, "subject": subject,
+                                  "text": text, "html": html or text}).encode("utf-8")
+            req = urllib.request.Request("https://api.resend.com/emails", data=payload,
+                                         headers={"Authorization": "Bearer " + key,
+                                                  "Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=15).read()
+            return True
+        except Exception:
+            return False
+    host = (c.get("smtp_host") or "").strip()
+    user = (c.get("smtp_user") or "").strip()
+    pwd = (c.get("smtp_pass") or "").strip()
+    if not (host and user and pwd):
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = frm
+    msg["To"] = ", ".join(recips)
+    msg.set_content(text)
+    if html:
+        msg.add_alternative(html, subtype="html")
+    try:
+        with smtplib.SMTP(host, int(c.get("smtp_port") or 587), timeout=10) as s:
+            s.starttls()
+            s.login(user, pwd)
+            s.send_message(msg)
+        return True
+    except Exception:
+        return False
 
 
 def _esc(s):
@@ -426,35 +477,12 @@ def _twofa_email_html(name, code, subtitle="Monteur-app"):
 
 
 def _send_2fa_email(to_email, code, name=""):
-    """Mail de 6-cijferige inlogcode (nette HTML + platte-tekst-terugval).
-    True bij succes, anders False (val terug op scherm)."""
-    if not to_email:
-        return False
-    c = _email_cfg()
-    host = (c.get("smtp_host") or "").strip()
-    user = (c.get("smtp_user") or "").strip()
-    pwd = (c.get("smtp_pass") or "").strip()
-    if not (host and user and pwd):
-        return False
-    if (c.get("send_live") or "0") != "1":
-        return False   # testmodus: niets echt versturen
-    msg = EmailMessage()
-    msg["Subject"] = "Je OfficeRoute-inlogcode: %s" % code
-    msg["From"] = "%s <%s>" % ((c.get("from_name") or "OfficeRoute").strip(), user)
-    msg["To"] = to_email
-    msg.set_content("Hoi %s,\n\nJe verificatiecode voor OfficeRoute is: %s\n\n"
-                    "De code is 5 minuten geldig.\n\n"
-                    "Niet zelf ingelogd? Neem dan direct contact op met de beheerder en deel "
-                    "deze code met niemand.\n" % (name or "collega", code))
-    msg.add_alternative(_twofa_email_html(name, code), subtype="html")
-    try:
-        with smtplib.SMTP(host, int(c.get("smtp_port") or 587), timeout=10) as s:
-            s.starttls()
-            s.login(user, pwd)
-            s.send_message(msg)
-        return True
-    except Exception:
-        return False
+    """Mail de 6-cijferige inlogcode (HTML + tekst). True bij succes, anders False (val terug op scherm)."""
+    text = ("Hoi %s,\n\nJe verificatiecode voor OfficeRoute is: %s\n\n"
+            "De code is 5 minuten geldig.\n\n"
+            "Niet zelf ingelogd? Neem dan direct contact op met de beheerder en deel "
+            "deze code met niemand.\n" % (name or "collega", code))
+    return _api_send(to_email, "Je OfficeRoute-inlogcode: %s" % code, text, _twofa_email_html(name, code))
 
 
 # --------------------------------------------------------------------------- #
@@ -807,42 +835,8 @@ def _brand_email(heading, paragraphs, info=None, button=None, note=None):
 
 
 def _smtp_send(to_list, subject, body, html=None):
-    """Best-effort e-mail via de SMTP-config uit de gedeelde 'integrations'-tabel.
-    Niet ingesteld (demo) -> False; de actie is dan nog steeds in de software vastgelegd."""
-    to_list = [t for t in (to_list or []) if t]
-    if not to_list:
-        return False
-    try:
-        conn = db()
-        cfg = {r["field"]: r["value"] for r in
-               conn.execute("SELECT field,value FROM integrations WHERE ikey=?", ("email",)).fetchall()}
-        conn.close()
-    except Exception:
-        cfg = {}
-    host = (cfg.get("smtp_host") or "").strip()
-    if not host:
-        return False
-    if (cfg.get("send_live") or "0") != "1":
-        return False   # testmodus: niets echt versturen
-    user = (cfg.get("smtp_user") or "").strip()
-    pwd = (cfg.get("smtp_pass") or "").strip()
-    sender = user or "noreply@office-interior.nl"
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = "%s <%s>" % ((cfg.get("from_name") or "Office-Interior").strip(), sender)
-    msg["To"] = ", ".join(to_list)
-    msg.set_content(body)
-    if html:
-        msg.add_alternative(html, subtype="html")
-    try:
-        with smtplib.SMTP(host, int(cfg.get("smtp_port") or 587), timeout=10) as s:
-            s.starttls()
-            if user and pwd:
-                s.login(user, pwd)
-            s.send_message(msg)
-        return True
-    except Exception:
-        return False
+    """Verstuur (Resend/HTTPS of SMTP-fallback) via de gedeelde 'email'-integratie. Respecteert testmodus."""
+    return _api_send([t for t in (to_list or []) if t], subject, body, html)
 
 
 def _send_bus_issue_email(monteur_name, bus_label, plate, message):
