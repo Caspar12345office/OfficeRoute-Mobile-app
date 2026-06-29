@@ -651,9 +651,8 @@ def monteur_announce(pid):
                  (p["client_id"], "out", subject, body, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()
-    html = _brand_email("Onze monteur is er bijna",
-                        ["Beste %s," % (p["client"] or "klant"),
-                         "Onze monteur is er bijna. U kunt hem live volgen via de knop hieronder."],
+    html = _brand_email(_mailtxt("mailtxt_near_h"),
+                        _paras("Beste %s," % (p["client"] or "klant"), _mailtxt("mailtxt_near_b")),
                         info=[("Monteur", u["name"]), ("Verwachte aankomst", "rond %s" % eta),
                               ("Ordernummer", "#%s" % p["order_number"])],
                         button=("Volg live op de kaart", track_url))
@@ -723,6 +722,28 @@ def api_leave_seen():
     conn.commit()
     conn.close()
     return jsonify(ok=True)
+
+
+MAIL_TEXT_DEFAULTS = {
+    "mailtxt_near_h": "Onze monteur is er bijna",
+    "mailtxt_near_b": "Onze monteur is er bijna. U kunt hem live volgen via de knop hieronder.",
+}
+
+
+def _mailtxt(key):
+    """Bewerkbare mailtekst uit de gedeelde settings (beheerd in de kantoor-app), anders standaard."""
+    try:
+        conn = db()
+        r = conn.execute("SELECT value FROM settings WHERE skey=?", (key,)).fetchone()
+        conn.close()
+        v = r["value"] if r else None
+    except Exception:
+        v = None
+    return v if (v is not None and v.strip()) else MAIL_TEXT_DEFAULTS.get(key, "")
+
+
+def _paras(greet, bodytext):
+    return [greet] + [p for p in (bodytext or "").split("\n\n") if p.strip()]
 
 
 def _brand_email(heading, paragraphs, info=None, button=None, note=None):
