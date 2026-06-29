@@ -42,8 +42,8 @@
   .busissue{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid var(--line);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:999px;margin-bottom:12px;cursor:pointer}
   .busissue:hover{color:var(--accent);border-color:var(--accent)}
   .routebtns{display:flex;gap:8px;margin-bottom:12px}
-  .routebtns .rbtn{flex:1;text-align:center;font-size:13.5px;font-weight:700;padding:12px 6px;border-radius:12px;color:#fff;background:var(--accent)}
-  .routebtns .rbtn.w{flex:0 0 auto;padding:12px 18px;background:#2ec5ff;color:#073047}
+  .routebtns .rbtn{flex:1 1 0;text-align:center;font-size:13px;font-weight:700;padding:12px 6px;border-radius:12px;color:#fff;background:var(--accent)}
+  .routebtns .rbtn.w{background:#2ec5ff;color:#073047}
   .stopline{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line)}
   .stopline .seq{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
   .stopline.done{opacity:.5}
@@ -99,8 +99,8 @@
     {% set rem = jobs|rejectattr('status','equalto','afgerond')|list %}
     {% if rem %}
     <div class="routebtns">
-      <a class="rbtn g" target="_blank" href="https://www.google.com/maps/dir/{% for j in rem %}{{ j.delivery_address|urlencode }}{% if not loop.last %}/{% endif %}{% endfor %}">🗺 Hele route in Google&nbsp;Maps</a>
-      <a class="rbtn w" target="_blank" href="https://waze.com/ul?q={{ rem[0].delivery_address|urlencode }}&navigate=yes">Waze</a>
+      <a class="rbtn g" target="_blank" href="https://www.google.com/maps/dir/{% for j in rem %}{{ j.delivery_address|urlencode }}{% if not loop.last %}/{% endif %}{% endfor %}">🗺 Hele route<br>Google Maps</a>
+      <a class="rbtn w" target="_blank" href="https://waze.com/ul?q={{ rem[0].delivery_address|urlencode }}&navigate=yes">📍 Volgende stop<br>Waze</a>
     </div>
     {% endif %}
     <button class="busissue" onclick="openBusIssue()">🔧 Bus-issue melden</button>
@@ -139,7 +139,17 @@
   {% else %}
     <div class="okbar">✓ Geen files of werkzaamheden op je route — je kunt vlot doorrijden.</div>
   {% endif %}
-  <p class="muted" style="font-size:12.5px;text-align:center;margin-top:16px">Beslissingen op je verlofaanvragen verschijnen automatisch als melding.</p>
+
+  <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Berichten van klanten</h3>
+  {% if client_notes %}
+    {% for n in client_notes %}
+    <div style="background:#e7f0ff;border:1px solid #b9d2f5;color:#1e477f;border-radius:11px;padding:11px 13px;font-size:13.5px;margin-bottom:8px">📣 <b>{{ n.client }}:</b> {{ n.note }}</div>
+    {% endfor %}
+  {% else %}
+    <div class="okbar">Geen berichten van klanten vandaag.</div>
+  {% endif %}
+
+  <p class="muted" style="font-size:12.5px;text-align:center;margin-top:16px">Klantberichten verdwijnen automatisch 12 uur na de levering. Beslissingen op je verlofaanvragen verschijnen ook hier.</p>
 </div>
 
 <!-- CONTACT -->

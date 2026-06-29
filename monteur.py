@@ -513,6 +513,17 @@ def logout():
 # --------------------------------------------------------------------------- #
 #  Monteur-app
 # --------------------------------------------------------------------------- #
+def _purge_old_customer_notes(conn):
+    """Privacy: klantopmerkingen wissen 12 uur na de levering (fulfilled_at)."""
+    try:
+        cutoff = (datetime.now() - timedelta(hours=12)).isoformat(timespec="minutes")
+        conn.execute("UPDATE orders SET customer_note=NULL WHERE customer_note IS NOT NULL "
+                     "AND fulfilled=1 AND fulfilled_at IS NOT NULL AND fulfilled_at < ?", (cutoff,))
+        conn.commit()
+    except Exception:
+        pass
+
+
 def _current_bus():
     return FLEET_BY_ID.get(session.get("bus_id"))
 
@@ -561,6 +572,7 @@ def monteur_app():
         return redirect(url_for("planning.kies_bus"))
     u = current_user()
     conn = db()
+    _purge_old_customer_notes(conn)
     mid = u["monteur_id"]
     today = _today_iso()
     jobs, monteur = [], None
