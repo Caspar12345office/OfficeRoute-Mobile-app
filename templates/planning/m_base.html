@@ -16,13 +16,13 @@
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   :root{--accent:#0f3d3e;--accent2:#15595a;--gold:#b88a44;--bg:#f3efe8;--ink:#16302d;--muted:#74705f;--soft:#eef3ec;--line:#e6ebe4;--panel:#fff;--green:#5aab4e;--red:#c0533f}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:#aeb9b2;color:var(--ink);-webkit-font-smoothing:antialiased;
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:var(--panel);color:var(--ink);-webkit-font-smoothing:antialiased;
        display:flex;align-items:center;justify-content:center;min-height:100dvh}
   a{color:inherit;text-decoration:none}
   /* iPhone 17 Pro-formaat (393 × 852) — op desktop als telefoon, op mobiel volledig scherm */
   /* mobiel: volledig scherm (geen grijze rand). desktop: telefoon-frame. */
   .m-screen{width:100%;max-width:393px;height:100dvh;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden}
-  @media (min-width:430px) and (min-height:760px){ .m-screen{height:96dvh;max-height:852px;border-radius:46px;box-shadow:0 22px 60px rgba(0,0,0,.32)} }
+  @media (min-width:430px) and (min-height:760px){ body{background:#aeb9b2} .m-screen{height:96dvh;max-height:852px;border-radius:46px;box-shadow:0 22px 60px rgba(0,0,0,.32)} }
   .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 16px) 18px 14px;display:flex;align-items:flex-end;justify-content:center;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
   .m-top .brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:19px}
   .m-top a.logout{position:absolute;right:18px;bottom:13px;color:#cfe1da;font-size:13px}
@@ -30,7 +30,8 @@
   .m-pane{display:none;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}
   .m-pane.active{display:block}
   .m-tabs{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-  .m-tabs a{flex:1;display:flex;align-items:center;justify-content:center;padding:15px 0 14px;color:var(--muted);font-size:15.5px;font-weight:600;border-top:2.5px solid transparent}
+  .m-tabs a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 0 8px;color:var(--muted);font-size:12px;font-weight:600;border-top:2.5px solid transparent}
+  .m-tabs a svg{width:23px;height:23px;display:block;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .m-tabs a.active{color:var(--accent);border-top-color:var(--accent)}
   .btn-lg{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;text-align:center}
   .btn-lg.primary{background:var(--accent);color:#fff}
@@ -66,10 +67,10 @@
     {% block content %}{% endblock %}
   </main>
   <nav class="m-tabs">
-    <a class="active" data-tab="route" onclick="mtab(event,'route')">Route</a>
-    <a data-tab="meldingen" onclick="mtab(event,'meldingen')">Meldingen</a>
-    <a data-tab="contact" onclick="mtab(event,'contact')">Contact</a>
-    <a data-tab="ik" onclick="mtab(event,'ik')">Ik</a>
+    <a class="active" data-tab="route" onclick="mtab(event,'route')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.39-1.628-1.026l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.39 1.628 1.026l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"/></svg><span>Route</span></a>
+    <a data-tab="meldingen" onclick="mtab(event,'meldingen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.857 17.082a23.85 23.85 0 0 0 5.454-1.31A8.97 8.97 0 0 1 18 9.75V9a6 6 0 0 0-12 0v.75a8.97 8.97 0 0 1-2.312 6.022 23.85 23.85 0 0 0 5.455 1.31m5.714 0a24.26 24.26 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg><span>Meldingen</span></a>
+    <a data-tab="contact" onclick="mtab(event,'contact')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.04 12.04 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/></svg><span>Contact</span></a>
+    <a data-tab="ik" onclick="mtab(event,'ik')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg><span>Ik</span></a>
   </nav>
 </div>
 
