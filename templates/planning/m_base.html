@@ -85,6 +85,12 @@
 <script>function leaveSeen(){fetch('{{ url_for("planning.api_leave_seen") }}',{method:'POST'}).then(function(){document.getElementById('leavePop').style.display='none';});}</script>
 {% endif %}
 
+<div id="oiUpd" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,30,28,.94);color:#fff;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;font-family:'Jost',Arial,sans-serif">
+  <div style="font-size:34px">⬇</div>
+  <div style="font-size:17px;font-weight:700;margin-top:8px">Nieuwe versie — bijwerken…</div>
+  <div style="font-size:13px;color:#bcdcd2;margin-top:4px">De app wordt automatisch ververst.</div>
+</div>
+
 <script>
 function mtab(ev, id){
   document.querySelectorAll('.m-tabs a').forEach(function(a){a.classList.toggle('active', a.getAttribute('data-tab')===id);});
@@ -92,6 +98,18 @@ function mtab(ev, id){
   document.querySelector('.m-content').scrollTop=0;
 }
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('{{ url_for("planning.service_worker") }}').catch(function(){}); }
+
+/* ---------- Verplichte update: nieuwe versie -> app automatisch herladen ---------- */
+window.OI_VERSION="{{ p_app_version }}";
+(function(){
+  var pending=false;
+  function busy(){var ov=document.querySelectorAll('.ov,.leavepop');for(var i=0;i<ov.length;i++){if(getComputedStyle(ov[i]).display!=='none')return true;}return false;}
+  function apply(){pending=true;if(busy())return;var b=document.getElementById('oiUpd');if(b)b.style.display='flex';setTimeout(function(){location.reload();},800);}
+  function check(){fetch('{{ url_for("planning.version") }}',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&window.OI_VERSION&&d.v!==window.OI_VERSION)apply();}).catch(function(){});}
+  setInterval(check,60000);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){pending?apply():check();}});
+  document.addEventListener('click',function(){if(pending)setTimeout(apply,250);});
+})();
 
 /* ---------- Donkere modus ---------- */
 function toggleTheme(){var el=document.documentElement;var d=el.getAttribute('data-theme')!=='dark';

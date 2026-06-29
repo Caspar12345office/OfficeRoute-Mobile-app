@@ -21,6 +21,8 @@ bp = Blueprint("planning", __name__, url_prefix="", template_folder="templates")
 
 BRAND = "OfficeRoute"
 HOME_BASE = "Breda"
+# Versie verandert automatisch bij elke Render-deploy (commit-SHA) → verplicht bijwerken.
+APP_VERSION = (os.environ.get("RENDER_GIT_COMMIT") or "dev")[:12]
 ALERT_THRESHOLD = 20
 ROLE_LABELS = {"beheerder": "Beheerder", "manager": "Manager", "planner": "Planner",
                "administratie": "Administratie", "monteur": "Monteur"}
@@ -367,6 +369,7 @@ def _inject():
     u = current_user()
     return {"p_user": u, "p_has_perm": has_perm, "p_perms": user_perms(u),
             "ROLE_LABELS": ROLE_LABELS, "HOME_BASE": HOME_BASE, "BRAND": BRAND,
+            "p_app_version": APP_VERSION,
             "p_leave_decision": my_unseen_decision(u) if u else None}
 
 
@@ -850,6 +853,11 @@ def pakbon(oid):
 # --------------------------------------------------------------------------- #
 #  PWA
 # --------------------------------------------------------------------------- #
+@bp.route("/version")
+def version():
+    return jsonify(v=APP_VERSION)
+
+
 @bp.route("/manifest.webmanifest")
 def manifest():
     i192 = url_for("static", filename="icon-192.png")

@@ -41,6 +41,13 @@
   .callrow .cbtn{margin-left:auto;background:var(--green);color:#fff;font-weight:700;font-size:13.5px;padding:10px 15px;border-radius:11px;white-space:nowrap}
   .busissue{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid var(--line);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:999px;margin-bottom:12px;cursor:pointer}
   .busissue:hover{color:var(--accent);border-color:var(--accent)}
+  .routebtns{display:flex;gap:8px;margin-bottom:12px}
+  .routebtns .rbtn{flex:1;text-align:center;font-size:13.5px;font-weight:700;padding:12px 6px;border-radius:12px;color:#fff;background:var(--accent)}
+  .routebtns .rbtn.w{flex:0 0 auto;padding:12px 18px;background:#2ec5ff;color:#073047}
+  .stopline{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line)}
+  .stopline .seq{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .stopline.done{opacity:.5}
+  .stopline b{font-size:14px}.stopline .ad2{font-size:13px;color:var(--muted)}
   .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:90}
   .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px;max-height:92vh;overflow:auto}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
@@ -84,11 +91,18 @@
       <div class="slogan">Werkse vandaag! 💪</div>
       {% if bus %}<div class="busline">🚐 {{ bus.label }} · {{ bus.plate }}</div>{% endif %}
       <div class="sum">
-        <div><b>{{ jobs|length }}</b><span>stops</span></div>
+        <div onclick="document.getElementById('stopsSheet').style.display='flex'" style="cursor:pointer" title="Toon alle adressen"><b>{{ jobs|length }} ›</b><span>stops</span></div>
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
         <div><b>{{ jobs|rejectattr('status','equalto','afgerond')|list|length }}</b><span>te gaan</span></div>
       </div>
     </div>
+    {% set rem = jobs|rejectattr('status','equalto','afgerond')|list %}
+    {% if rem %}
+    <div class="routebtns">
+      <a class="rbtn g" target="_blank" href="https://www.google.com/maps/dir/{% for j in rem %}{{ j.delivery_address|urlencode }}{% if not loop.last %}/{% endif %}{% endfor %}">🗺 Hele route in Google&nbsp;Maps</a>
+      <a class="rbtn w" target="_blank" href="https://waze.com/ul?q={{ rem[0].delivery_address|urlencode }}&navigate=yes">Waze</a>
+    </div>
+    {% endif %}
     <button class="busissue" onclick="openBusIssue()">🔧 Bus-issue melden</button>
     {% if alerts %}<div class="alert">⚠ <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
     {% if not jobs %}<div class="jc"><b>Geen leveringen vandaag.</b><div class="ad">Je route is leeg. Fijne dag!</div></div>{% endif %}
@@ -105,8 +119,7 @@
       {% if j.phone %}<div class="meta"><a class="pill" href="tel:{{ j.phone }}">📞 bel klant</a></div>{% endif %}
       {% set q = j.delivery_address|urlencode %}
       <div class="navrow">
-        <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ q }}">Google</a>
-        <a target="_blank" href="https://maps.apple.com/?daddr={{ q }}">Apple</a>
+        <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ q }}">Google Maps</a>
         <a target="_blank" href="https://waze.com/ul?q={{ q }}&navigate=yes">Waze</a>
       </div>
       {% if j.status!='afgerond' %}<button class="btn-lg ghost" style="margin-bottom:8px" id="ann{{ j.id }}" onclick="announce({{ j.id }},this)">📣 Klant: ik kom eraan</button>{% endif %}
@@ -185,6 +198,18 @@
     <label>Toelichting</label><textarea name="reason" rows="2" placeholder="bv. tandarts om 10:00"></textarea>
     <div style="display:flex;gap:10px;margin-top:12px"><button type="button" class="btn-lg ghost" onclick="document.getElementById('leaveModal').style.display='none'">Annuleren</button><button type="button" class="btn-lg primary" onclick="submitLeave(this)">Indienen</button></div>
   </form>
+</div></div>
+
+<div class="ov" id="stopsSheet"><div class="sheet">
+  <h3>Adressen vandaag</h3>
+  <div style="max-height:58vh;overflow:auto;margin:6px 0 12px">
+  {% for j in jobs %}
+    <div class="stopline {{ 'done' if j.status=='afgerond' }}"><span class="seq">{{ loop.index }}</span><div><b>{{ j.client }}</b><div class="ad2">{{ j.delivery_address }}</div></div></div>
+  {% else %}
+    <div class="ad2">Geen stops vandaag.</div>
+  {% endfor %}
+  </div>
+  <button class="btn-lg ghost" onclick="document.getElementById('stopsSheet').style.display='none'">Sluiten</button>
 </div></div>
 
 <div class="ov" id="busIssueModal"><div class="sheet">
