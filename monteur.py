@@ -388,8 +388,38 @@ def _email_configured():
                 and (c.get("smtp_pass") or "").strip())
 
 
+def _esc(s):
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _twofa_email_html(name, code, subtitle="Monteur-app"):
+    html = """<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e7ebe7;padding:24px 0;margin:0;">
+<tr><td align="center">
+<table role="presentation" width="460" cellpadding="0" cellspacing="0" style="max-width:460px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e6ebe4;font-family:Arial,Helvetica,sans-serif;">
+<tr><td style="background:#0f3d3e;padding:22px 24px;">
+<span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:2px;">OfficeRoute</span>
+<span style="color:#cda35a;font-size:12px;"> &middot; __SUB__</span></td></tr>
+<tr><td style="padding:26px 24px 6px;">
+<p style="margin:0 0 4px;font-size:16px;color:#16302d;">Hoi __NAME__,</p>
+<p style="margin:0 0 20px;font-size:15px;color:#5f6b64;line-height:1.6;">Hier is je inlogcode voor OfficeRoute. Vul 'm in op het inlogscherm om verder te gaan.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef3ec;border:1px solid #cda35a;border-radius:12px;margin-bottom:16px;">
+<tr><td align="center" style="padding:18px;">
+<div style="font-size:12px;color:#5f6b64;margin-bottom:8px;">Je verificatiecode</div>
+<div style="font-size:38px;font-weight:bold;color:#0f3d3e;letter-spacing:8px;">__CODE__</div></td></tr></table>
+<p style="margin:0 0 18px;font-size:13px;color:#5f6b64;">Deze code is 5 minuten geldig.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7efe0;border:1px solid #e3c98f;border-radius:12px;">
+<tr><td style="padding:14px 15px;font-size:13px;color:#6b4e15;line-height:1.55;">
+<b>Niet zelf ingelogd?</b> Heb je g&eacute;&eacute;n inlogpoging gedaan, neem dan <b>direct contact op met de beheerder</b>. Deel deze code met niemand.</td></tr></table>
+</td></tr>
+<tr><td style="padding:18px 24px 22px;border-top:1px solid #e6ebe4;">
+<p style="margin:0;font-size:11px;color:#97a39d;line-height:1.6;">Deze e-mail is automatisch verstuurd door OfficeRoute &middot; Office-Interior.<br>Antwoorden op dit bericht worden niet gelezen.</p></td></tr>
+</table></td></tr></table>"""
+    return html.replace("__SUB__", _esc(subtitle)).replace("__NAME__", _esc(name) or "collega").replace("__CODE__", _esc(code))
+
+
 def _send_2fa_email(to_email, code, name=""):
-    """Mail de 6-cijferige inlogcode. True bij succes, anders False (val terug op scherm)."""
+    """Mail de 6-cijferige inlogcode (nette HTML + platte-tekst-terugval).
+    True bij succes, anders False (val terug op scherm)."""
     if not to_email:
         return False
     c = _email_cfg()
@@ -403,8 +433,10 @@ def _send_2fa_email(to_email, code, name=""):
     msg["From"] = "%s <%s>" % ((c.get("from_name") or "OfficeRoute").strip(), user)
     msg["To"] = to_email
     msg.set_content("Hoi %s,\n\nJe verificatiecode voor OfficeRoute is: %s\n\n"
-                    "De code is 5 minuten geldig. Heb je niet geprobeerd in te loggen? "
-                    "Negeer dit bericht.\n" % (name or "", code))
+                    "De code is 5 minuten geldig.\n\n"
+                    "Niet zelf ingelogd? Neem dan direct contact op met de beheerder en deel "
+                    "deze code met niemand.\n" % (name or "collega", code))
+    msg.add_alternative(_twofa_email_html(name, code), subtype="html")
     try:
         with smtplib.SMTP(host, int(c.get("smtp_port") or 587), timeout=10) as s:
             s.starttls()
