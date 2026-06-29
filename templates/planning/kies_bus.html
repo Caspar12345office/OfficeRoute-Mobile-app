@@ -11,9 +11,9 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;font-family:'Jost',Arial,sans-serif;background:#aeb9b2;color:var(--ink);-webkit-font-smoothing:antialiased;
        display:flex;align-items:center;justify-content:center;min-height:100dvh}
-  .phone{width:min(393px,100vw);height:min(852px,100dvh);overflow:hidden;display:flex;flex-direction:column;
-         background:linear-gradient(170deg,#0f3d3e,#15595a 60%,#0d3334);color:#fff;box-shadow:0 22px 60px rgba(0,0,0,.32)}
-  @media (min-width:430px) and (min-height:760px){ .phone{border-radius:46px} }
+  .phone{width:100%;max-width:393px;height:100dvh;overflow:hidden;display:flex;flex-direction:column;
+         background:linear-gradient(170deg,#0f3d3e,#15595a 60%,#0d3334);color:#fff}
+  @media (min-width:430px) and (min-height:760px){ .phone{height:96dvh;max-height:852px;border-radius:46px;box-shadow:0 22px 60px rgba(0,0,0,.32)} }
   .hd{padding:calc(env(safe-area-inset-top) + 26px) 22px 4px;flex-shrink:0}
   .hd .brand{font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:12.5px;color:#bcdcd2}
   .hd h1{font-size:23px;margin:12px 0 4px;font-weight:700}
@@ -49,7 +49,7 @@
   <form method="post" class="list">
     {% for b in fleet %}
     <button class="bus {{ 'sel' if current==b.id }}" type="submit" name="bus_id" value="{{ b.id }}">
-      <span class="nm">{{ b.label }}</span>
+      <span class="nm">{{ b.label or 'Bedrijfsbus' }}</span>
       <span class="plate"><span class="eu"><span class="st">★</span><span class="nl">NL</span></span><span class="pl">{{ b.plate }}</span></span>
       <span class="chev">›</span>
     </button>

@@ -20,16 +20,17 @@
        display:flex;align-items:center;justify-content:center;min-height:100dvh}
   a{color:inherit;text-decoration:none}
   /* iPhone 17 Pro-formaat (393 × 852) — op desktop als telefoon, op mobiel volledig scherm */
-  .m-screen{width:min(393px,100vw);height:min(852px,100dvh);margin:0 auto;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 22px 60px rgba(0,0,0,.32)}
-  @media (min-width:430px) and (min-height:760px){ .m-screen{border-radius:46px} }
-  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 13px;display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
-  .m-top .brand{font-weight:600;letter-spacing:.13em;text-transform:uppercase;font-size:13.5px}
-  .m-top a.logout{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:#cfe1da;font-size:12.5px}
+  /* mobiel: volledig scherm (geen grijze rand). desktop: telefoon-frame. */
+  .m-screen{width:100%;max-width:393px;height:100dvh;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden}
+  @media (min-width:430px) and (min-height:760px){ .m-screen{height:96dvh;max-height:852px;border-radius:46px;box-shadow:0 22px 60px rgba(0,0,0,.32)} }
+  .m-top{background:linear-gradient(135deg,#0f3d3e,#15595a);color:#fff;padding:calc(env(safe-area-inset-top) + 16px) 18px 14px;display:flex;align-items:flex-end;justify-content:center;position:sticky;top:0;z-index:10;box-shadow:0 4px 14px rgba(15,61,62,.18)}
+  .m-top .brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:19px}
+  .m-top a.logout{position:absolute;right:18px;bottom:13px;color:#cfe1da;font-size:13px}
   .m-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .m-pane{display:none;padding:14px 14px calc(env(safe-area-inset-bottom) + 18px)}
   .m-pane.active{display:block}
   .m-tabs{display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-  .m-tabs a{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 0 13px;color:var(--muted);font-size:13px;font-weight:600;border-top:2.5px solid transparent}
+  .m-tabs a{flex:1;display:flex;align-items:center;justify-content:center;padding:15px 0 14px;color:var(--muted);font-size:15.5px;font-weight:600;border-top:2.5px solid transparent}
   .m-tabs a.active{color:var(--accent);border-top-color:var(--accent)}
   .btn-lg{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;text-align:center}
   .btn-lg.primary{background:var(--accent);color:#fff}

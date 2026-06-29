@@ -30,15 +30,17 @@ ROLE_LABELS = {"beheerder": "Beheerder", "manager": "Manager", "planner": "Plann
 PERMISSION_KEYS = ["view_planning", "edit_planning", "monteur_app", "complete_deliveries"]
 
 # Wagenpark — kentekens van onze vloot (buskeuze toont "Bus N" + kenteken, geen merk/chauffeur)
+# label leeg = voertuig wordt op zijn kenteken getoond; alleen de bakwagen
+# heeft een eigen naam ("Bakwagen") met de kentekengegevens erbij.
 FLEET = [
-    {"id": "bus1", "label": "Bus 1", "plate": "V-16-FGH"},
-    {"id": "bus2", "label": "Bus 2", "plate": "VLT-21-N"},
-    {"id": "bus3", "label": "Bus 3", "plate": "VVB-14-T"},
-    {"id": "bus4", "label": "Bus 4", "plate": "VSN-02-X"},
-    {"id": "bus5", "label": "Bus 5", "plate": "VTZ-73-G"},
-    {"id": "bus6", "label": "Bus 6", "plate": "VVL-09-B"},
-    {"id": "bus7", "label": "Bus 7", "plate": "V-95-DVF"},
-    {"id": "bus8", "label": "Bus 8", "plate": "VTZ-77-G"},
+    {"id": "bus1", "label": "", "plate": "V-16-FGH"},
+    {"id": "bus2", "label": "", "plate": "VLT-21-N"},
+    {"id": "bus3", "label": "", "plate": "VVB-14-T"},
+    {"id": "bus4", "label": "", "plate": "VSN-02-X"},
+    {"id": "bus5", "label": "", "plate": "VTZ-73-G"},
+    {"id": "bus6", "label": "", "plate": "VVL-09-B"},
+    {"id": "bus7", "label": "", "plate": "V-95-DVF"},
+    {"id": "bus8", "label": "", "plate": "VTZ-77-G"},
     {"id": "bakwagen", "label": "Bakwagen", "plate": "VLD-03-F"},
 ]
 FLEET_BY_ID = {v["id"]: v for v in FLEET}
