@@ -15,8 +15,7 @@
   body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}
   .wrap{width:100%;max-width:380px;margin:0 auto}
   .logo{display:flex;align-items:center;gap:11px;margin-bottom:24px}
-  .logo .dot{width:42px;height:42px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center}
-  .logo .dot img{width:30px;height:30px}
+  .logo .mark{flex-shrink:0}
   .logo .wm{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:18px}
   .logo small{display:block;font-size:10px;letter-spacing:.08em;color:#9fc2b9;text-transform:none}
   h1{font-size:22px;margin:0 0 4px}
@@ -32,7 +31,13 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="logo"><span class="dot"><img src="{{ url_for('static', filename='oi-icon.svg') }}" alt=""></span><div><span class="wm">OfficeRoute</span><small>Monteur-app</small></div></div>
+  <div class="logo">
+    <svg class="mark" width="46" height="46" viewBox="0 0 512 512" aria-hidden="true">
+      <circle cx="256" cy="205" r="96" fill="none" stroke="#cda35a" stroke-width="44"/>
+      <rect x="234" y="250" width="44" height="166" rx="22" fill="#cda35a"/>
+    </svg>
+    <div><span class="wm">OfficeRoute</span><small>Monteur-app</small></div>
+  </div>
 
   {% if show_2fa %}
   <h1>Verificatie</h1>
