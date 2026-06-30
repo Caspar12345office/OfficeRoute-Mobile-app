@@ -75,7 +75,7 @@
 <div class="m-pane active" id="pane-route">
   {% if closed %}
     <div class="daysum">
-      <div class="ic">✅</div>
+      <div class="ic"><svg class="ico"><use href="#ic-check"/></svg></div>
       <h2>Mooi werk{% if monteur %}, {{ monteur.name }}{% endif %}!</h2>
       <p>Je route van vandaag zit erop.</p>
       <div class="sum">
@@ -89,10 +89,10 @@
     <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Vraag de beheerder je account aan een monteur te koppelen.</div></div>
   {% else %}
     <div class="dayhead">
-      <div class="dhtop"><span class="hi">Vandaag · {{ HOME_BASE }}</span>{% if region %}<span class="regio">📍 Regio {{ region }}</span>{% endif %}</div>
+      <div class="dhtop"><span class="hi">Vandaag · {{ HOME_BASE }}</span>{% if region %}<span class="regio"><svg class="ico"><use href="#ic-pin"/></svg> Regio {{ region }}</span>{% endif %}</div>
       <h2>Hoi {{ monteur.name }},</h2>
       <div class="slogan">Werkse vandaag! 💪</div>
-      {% if bus %}<div class="busline">🚐 {% if bus.label %}{{ bus.label }} · {% endif %}{{ bus.plate }}</div>{% endif %}
+      {% if bus %}<div class="busline"><svg class="ico"><use href="#ic-truck"/></svg> {% if bus.label %}{{ bus.label }} · {% endif %}{{ bus.plate }}</div>{% endif %}
       <div class="sum">
         <div onclick="document.getElementById('stopsSheet').style.display='flex'" style="cursor:pointer" title="Toon alle adressen"><b>{{ jobs|length }} ›</b><span>stops</span></div>
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
@@ -113,30 +113,30 @@
       </a>
     </div>
     {% endif %}
-    {% if alerts %}<div class="alert">⚠ <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
+    {% if alerts %}<div class="alert"><svg class="ico"><use href="#ic-alert"/></svg> <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
     {% if not jobs %}<div class="jc"><b>Geen leveringen vandaag.</b><div class="ad">Je route is leeg. Fijne dag!</div></div>{% endif %}
     {% for j in jobs %}
     <div class="jc {{ 'done' if j.status=='afgerond' }}">
       <div class="r1"><span class="seq">{{ loop.index }}</span><span class="num">#{{ j.order_number }}</span>
-        {% if j.status=='afgerond' %}<span class="donepill">✓ Afgerond</span>{% elif j.status=='onderweg' %}<span class="pill" style="margin-left:auto;background:#dbeafe;color:#1e54c8">onderweg</span>{% endif %}</div>
+        {% if j.status=='afgerond' %}<span class="donepill"><svg class="ico"><use href="#ic-check"/></svg> Afgerond</span>{% elif j.status=='onderweg' %}<span class="pill" style="margin-left:auto;background:#dbeafe;color:#1e54c8">onderweg</span>{% endif %}</div>
       <div class="cl">{{ j.client }}</div>
       <div class="ad">{{ j.delivery_address }}</div>
-      <div class="box items">📦 {{ j.items or '—' }}</div>
-      {% if j.service_type=='ophalen' %}<div class="box note">📥 Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
-      {% if j.instructions %}<div class="box note">📝 Van de planning: {{ j.instructions }}</div>{% endif %}
-      {% if j.customer_note %}<div class="box cust">📣 Bericht van klant: {{ j.customer_note }}</div>{% endif %}
-      {% if j.phone %}<div class="meta"><a class="pill" href="tel:{{ j.phone }}">📞 bel klant</a></div>{% endif %}
+      <div class="box items"><svg class="ico"><use href="#ic-box"/></svg> {{ j.items or '—' }}</div>
+      {% if j.service_type=='ophalen' %}<div class="box note"><svg class="ico"><use href="#ic-download"/></svg> Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
+      {% if j.instructions %}<div class="box note"><svg class="ico"><use href="#ic-pencil"/></svg> Van de planning: {{ j.instructions }}</div>{% endif %}
+      {% if j.customer_note %}<div class="box cust"><svg class="ico"><use href="#ic-bell"/></svg> Bericht van klant: {{ j.customer_note }}</div>{% endif %}
+      {% if j.phone %}<div class="meta"><a class="pill" href="tel:{{ j.phone }}"><svg class="ico"><use href="#ic-phone"/></svg> bel klant</a></div>{% endif %}
       {% set q = j.delivery_address|urlencode %}
       <div class="navrow">
         <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ q }}">Google Maps</a>
         <a target="_blank" href="https://waze.com/ul?q={{ q }}&navigate=yes">Waze</a>
       </div>
-      {% if j.status!='afgerond' %}<button class="btn-lg ghost" style="margin-bottom:8px" id="ann{{ j.id }}" onclick="announce({{ j.id }},this)">📣 Klant: ik kom eraan</button>{% endif %}
+      {% if j.status!='afgerond' %}<button class="btn-lg ghost" style="margin-bottom:8px" id="ann{{ j.id }}" onclick="announce({{ j.id }},this)"><svg class="ico"><use href="#ic-bell"/></svg> Klant: ik kom eraan</button>{% endif %}
       {% if j.status=='gepland' %}<button class="btn-lg ghost" style="margin-bottom:8px" onclick="startStop({{ j.id }})">🚗 Onderweg naar deze klant</button>{% endif %}
       {% if j.status!='afgerond' %}<button class="btn-lg primary" onclick="openComplete({{ j.id }}, '{{ j.client|e }}')">Levering afronden</button>{% endif %}
     </div>
     {% endfor %}
-    {% if all_done %}<button class="btn-lg danger" onclick="confirmCloseRoute()">🔒 Sluit route voor vandaag</button>{% endif %}
+    {% if all_done %}<button class="btn-lg danger" onclick="confirmCloseRoute()"><svg class="ico"><use href="#ic-lock"/></svg> Sluit route voor vandaag</button>{% endif %}
   {% endif %}
 </div>
 
@@ -144,22 +144,22 @@
 <div class="m-pane" id="pane-meldingen">
   <h3 style="margin:4px 2px 12px;font-size:17px;color:var(--accent)">Onderweg</h3>
   {% if alerts %}
-    <div class="alert">⚠ <div><b>Files / werkzaamheden op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}Je aankomsttijden zijn bijgewerkt.</div></div>
+    <div class="alert"><svg class="ico"><use href="#ic-alert"/></svg> <div><b>Files / werkzaamheden op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}Je aankomsttijden zijn bijgewerkt.</div></div>
   {% else %}
-    <div class="okbar">✓ Geen files of werkzaamheden op je route — je kunt vlot doorrijden.</div>
+    <div class="okbar"><svg class="ico"><use href="#ic-check"/></svg> Geen files of werkzaamheden op je route — je kunt vlot doorrijden.</div>
   {% endif %}
 
   <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Berichten van klanten</h3>
   {% if client_notes %}
     {% for n in client_notes %}
-    <div style="background:#e7f0ff;border:1px solid #b9d2f5;color:#1e477f;border-radius:11px;padding:11px 13px;font-size:13.5px;margin-bottom:8px">📣 <b>{{ n.client }}:</b> {{ n.note }}</div>
+    <div style="background:#e7f0ff;border:1px solid #b9d2f5;color:#1e477f;border-radius:11px;padding:11px 13px;font-size:13.5px;margin-bottom:8px"><svg class="ico"><use href="#ic-bell"/></svg> <b>{{ n.client }}:</b> {{ n.note }}</div>
     {% endfor %}
   {% else %}
     <div class="okbar">Geen berichten van klanten vandaag.</div>
   {% endif %}
 
   <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Probleem met je bus?</h3>
-  <button class="btn-lg ghost" onclick="openBusIssue()">🔧 Bus-issue melden</button>
+  <button class="btn-lg ghost" onclick="openBusIssue()"><svg class="ico"><use href="#ic-wrench"/></svg> Bus-issue melden</button>
   <p class="muted" style="font-size:12.5px;text-align:center;margin-top:8px">Je melding komt direct binnen bij kantoor.</p>
 
   <p class="muted" style="font-size:12.5px;text-align:center;margin-top:16px">Klantberichten verdwijnen automatisch 12 uur na de levering. Beslissingen op je verlofaanvragen verschijnen ook hier.</p>
@@ -172,7 +172,7 @@
   <a class="callrow" href="tel:{{ c.phone|replace(' ','') }}">
     <span class="cav">{{ c.name[:1]|upper }}</span>
     <span class="cinfo"><b>{{ c.name }}</b><span>{{ c.phone }}</span></span>
-    <span class="cbtn">📞 Bellen</span>
+    <span class="cbtn"><svg class="ico"><use href="#ic-phone"/></svg> Bellen</span>
   </a>
   {% endfor %}
   <p class="muted" style="font-size:12px;text-align:center;margin-top:14px">Eén tik en je belt direct — met je eigen telefoon en abonnement.</p>
@@ -181,16 +181,16 @@
 <!-- IK -->
 <div class="m-pane" id="pane-ik">
   <div class="ikrow"><div class="av">{{ (monteur.name[:1] if monteur else p_user.name[:1])|upper }}</div><div><b>{{ monteur.name if monteur else p_user.name }}</b><span>Monteur</span></div></div>
-  <div class="ikrow"><div class="av" style="font-size:22px">🚐</div><div><b>{{ (bus.label or bus.plate) if bus else 'Geen bus gekozen' }}</b><span>{{ (bus.plate if bus.label else 'Bedrijfsbus') if bus else 'Kies je voertuig' }}</span></div>
+  <div class="ikrow"><div class="av" style="font-size:22px"><svg class="ico"><use href="#ic-truck"/></svg></div><div><b>{{ (bus.label or bus.plate) if bus else 'Geen bus gekozen' }}</b><span>{{ (bus.plate if bus.label else 'Bedrijfsbus') if bus else 'Kies je voertuig' }}</span></div>
     <a class="btn-lg ghost" style="width:auto;margin-left:auto;padding:10px 14px;font-size:13px" href="{{ url_for('planning.kies_bus') }}">Wisselen</a></div>
   {% if monteur %}
   <div class="ikrow" id="ikGps" style="justify-content:space-between"><div><b id="gpsState" style="font-size:14px">Live locatie uit</b><span>Deel je locatie zodat de planning je ziet rijden</span></div>
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
   {% endif %}
-  <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'">📅 Verlof / afspraak aanvragen</button>
-  <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()">🌙 Donkere modus</button>
+  <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'"><svg class="ico"><use href="#ic-calendar"/></svg> Verlof / afspraak aanvragen</button>
+  <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()"><svg class="ico"><use href="#ic-moon"/></svg> Donkere modus</button>
   <a class="btn-lg ghost" href="{{ url_for('planning.logout') }}">Uitloggen</a>
-  <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon → “Zet op beginscherm”.</p>
+  <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon <svg class="ico"><use href="#ic-arrow-right"/></svg> “Zet op beginscherm”.</p>
 </div>
 
 <!-- modals -->
@@ -246,7 +246,7 @@
 {% if client_notes %}
 <div class="leavepop" id="custNotePop" style="display:none">
   <div class="lb">
-    <div class="ic">📣</div>
+    <div class="ic"><svg class="ico"><use href="#ic-bell"/></svg></div>
     <h3 style="color:var(--accent)">Bericht{{ 'en' if client_notes|length>1 else '' }} van klant{{ 'en' if client_notes|length>1 else '' }}</h3>
     <div style="text-align:left;margin:8px 0 16px">
       {% for n in client_notes %}
@@ -263,7 +263,7 @@
 {% endif %}
 
 <div class="leavepop" id="closeConfirm" style="display:none">
-  <div class="lb"><div class="ic">🔒</div><h3 style="color:var(--accent)">Route afsluiten?</h3>
+  <div class="lb"><div class="ic"><svg class="ico"><use href="#ic-lock"/></svg></div><h3 style="color:var(--accent)">Route afsluiten?</h3>
     <p>Je rondde vandaag <b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b> van <b>{{ jobs|length }}</b> stops af.<br>De klantgegevens van vandaag worden gewist (privacy).</p>
     <div style="display:flex;gap:10px"><button class="btn-lg ghost" onclick="document.getElementById('closeConfirm').style.display='none'">Nee</button><button class="btn-lg danger" onclick="doCloseRoute()">Ja, sluit route</button></div>
   </div>
