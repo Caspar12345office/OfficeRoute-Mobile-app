@@ -11,7 +11,14 @@ DB: PostgreSQL als DATABASE_URL is gezet (productie), anders lokaal SQLite (ontw
 from flask import (Blueprint, render_template, request, redirect, url_for, session,
                    flash, jsonify, Response, abort, send_from_directory)
 from werkzeug.security import check_password_hash, generate_password_hash
-import os, json, time, sqlite3, secrets, smtplib
+import os, json, time, sqlite3, secrets, smtplib, threading
+
+# Licht/snel wachtwoord-hashen (Werkzeug-default 'scrypt' is traag op kleine servers).
+_PW_METHOD = "pbkdf2:sha256:30000"
+
+
+def _hash_pw(pw):
+    return generate_password_hash(pw, method=_PW_METHOD)
 import re as _re
 import urllib.request, urllib.error
 from email.message import EmailMessage
@@ -295,7 +302,7 @@ def init_db():
                              ("Tom", "06-21110011", "#0f3d3e", "Ginnekenweg 200, Breda", 51.57, 4.78))
                 conn.execute("""INSERT INTO users(name,email,password,role,permissions,monteur_id,active,created_at)
                                 VALUES(?,?,?,?,?,?,1,?)""",
-                             ("Tom", "tom@office-interior.nl", generate_password_hash("PlanningOI2025!"),
+                             ("Tom", "tom@office-interior.nl", _hash_pw("PlanningOI2025!"),
                               "monteur", json.dumps(["monteur_app"]), 1, today))
                 conn.execute("INSERT INTO clients(name,city,created_at) VALUES(?,?,?)", ("Gemeente Tilburg", "Tilburg", today))
                 conn.execute("""INSERT INTO orders(order_number,client_id,source,status,delivery_address,city,postal,
@@ -402,6 +409,11 @@ def _email_configured():
     return has_resend or has_smtp
 
 
+def _mail_live():
+    """True als mail echt verstuurd wordt (ingesteld + testmodus uit) — zonder netwerkcall."""
+    return _email_configured() and (_email_cfg().get("send_live") or "0") == "1"
+
+
 def _api_send(to, subject, text, html=None):
     """Verstuur via Resend HTTPS-API (werkt op Render); anders SMTP (lokaal). Respecteert testmodus.
     Leest de gedeelde 'email'-integratie (beheerd in de kantoor-app)."""
@@ -423,7 +435,7 @@ def _api_send(to, subject, text, html=None):
             req = urllib.request.Request("https://api.resend.com/emails", data=payload,
                                          headers={"Authorization": "Bearer " + key,
                                                   "Content-Type": "application/json"})
-            urllib.request.urlopen(req, timeout=15).read()
+            urllib.request.urlopen(req, timeout=10).read()
             return True
         except Exception:
             return False
@@ -522,13 +534,25 @@ def login():
             u = conn.execute("SELECT * FROM users WHERE lower(email)=? AND active=1", (email,)).fetchone()
             conn.close()
             if u and check_password_hash(u["password"], pw):
+                # Zware hash (scrypt/hoge telling) eenmalig omzetten naar de lichte methode.
+                if not (u["password"] or "").startswith(_PW_METHOD):
+                    try:
+                        cu = db()
+                        cu.execute("UPDATE users SET password=? WHERE id=?", (_hash_pw(pw), u["id"]))
+                        cu.commit(); cu.close()
+                    except Exception:
+                        pass
                 code = "%06d" % secrets.randbelow(1000000)
                 show_2fa = True; twofa_email = u["email"]
-                code_sent = _send_2fa_email(u["email"], code, u["name"])
+                # 2FA-mail op de ACHTERGROND: login wacht niet op het trage Resend-verzoek.
+                if _mail_live():
+                    code_sent = True
+                    threading.Thread(target=_send_2fa_email, args=(u["email"], code, u["name"]),
+                                     daemon=True).start()
+                else:
+                    demo_code = code   # terugval: toon op scherm als e-mail niet is ingesteld
                 session["twofa"] = {"uid": u["id"], "code": code, "exp": time.time() + 300,
                                     "email": u["email"], "sent": code_sent}
-                if not code_sent:
-                    demo_code = code   # terugval: toon op scherm als e-mail (nog) niet werkt
             else:
                 error = "Onjuiste inloggegevens."
     return render_template("planning/login.html", error=error, show_2fa=show_2fa,
