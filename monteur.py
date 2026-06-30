@@ -549,8 +549,9 @@ def login():
                     code_sent = True
                     threading.Thread(target=_send_2fa_email, args=(u["email"], code, u["name"]),
                                      daemon=True).start()
-                else:
-                    demo_code = code   # terugval: toon op scherm als e-mail niet is ingesteld
+                # Code ALTIJD ook op het scherm tonen als terugval — zo lukt inloggen
+                # ook als de e-mail (nog) niet aankomt. Verbergen zodra mail bewezen werkt.
+                demo_code = code
                 session["twofa"] = {"uid": u["id"], "code": code, "exp": time.time() + 300,
                                     "email": u["email"], "sent": code_sent}
             else:
