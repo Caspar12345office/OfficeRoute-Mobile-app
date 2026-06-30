@@ -81,7 +81,7 @@
       <div class="sum">
         <div><b>{{ jobs|length }}</b><span>stops</span></div>
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
-        {% if bus %}<div><b style="font-size:14px">{{ bus.plate }}</b><span>{{ bus.label or 'Bedrijfsbus' }}</span></div>{% endif %}
+        {% if bus %}<div><b style="font-size:14px">{{ bus.plate }}</b><span>{{ bus.label }}</span></div>{% endif %}
       </div>
       <p class="muted2">Fijne avond — tot morgen! 👋</p>
     </div>
@@ -181,7 +181,7 @@
 <!-- IK -->
 <div class="m-pane" id="pane-ik">
   <div class="ikrow"><div class="av">{{ (monteur.name[:1] if monteur else p_user.name[:1])|upper }}</div><div><b>{{ monteur.name if monteur else p_user.name }}</b><span>Monteur</span></div></div>
-  <div class="ikrow"><div class="av" style="font-size:22px"><svg class="ico"><use href="#ic-truck"/></svg></div><div><b>{{ (bus.label or bus.plate) if bus else 'Geen bus gekozen' }}</b><span>{{ (bus.plate if bus.label else 'Bedrijfsbus') if bus else 'Kies je voertuig' }}</span></div>
+  <div class="ikrow"><div class="av" style="font-size:22px"><svg class="ico"><use href="#ic-truck"/></svg></div><div><b>{{ (bus.label or bus.plate) if bus else 'Geen bus gekozen' }}</b><span>{{ (bus.plate if bus.label else '') if bus else 'Kies je voertuig' }}</span></div>
     <a class="btn-lg ghost" style="width:auto;margin-left:auto;padding:10px 14px;font-size:13px" href="{{ url_for('planning.kies_bus') }}">Wisselen</a></div>
   {% if monteur %}
   <div class="ikrow" id="ikGps" style="justify-content:space-between"><div><b id="gpsState" style="font-size:14px">Live locatie uit</b><span>Deel je locatie zodat de planning je ziet rijden</span></div>

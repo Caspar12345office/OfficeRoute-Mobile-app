@@ -49,7 +49,7 @@
   <form method="post" class="list">
     {% for b in fleet %}
     <button class="bus {{ 'sel' if current==b.id }}" type="submit" name="bus_id" value="{{ b.id }}">
-      <span class="nm">{{ b.label or 'Bedrijfsbus' }}</span>
+      {% if b.label %}<span class="nm">{{ b.label }}</span>{% endif %}
       <span class="plate"><span class="eu"><span class="st">★</span><span class="nl">NL</span></span><span class="pl">{{ b.plate }}</span></span>
       <span class="chev">›</span>
     </button>
