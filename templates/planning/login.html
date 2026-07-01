@@ -14,12 +14,12 @@
 <style>
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:flex-start;padding:calc(env(safe-area-inset-top) + 46px) 24px 24px;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
   /* subtiel honingraat-patroon dat naar onder vervaagt */
   .bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
   .glow{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;
         background:radial-gradient(circle,rgba(205,163,90,.15),transparent 70%);z-index:0;pointer-events:none}
-  .wrap{position:relative;z-index:1;width:100%;max-width:380px;margin:22px auto 0}
+  .wrap{position:relative;z-index:1;width:100%;max-width:380px;margin:0 auto}
   .logo{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:26px}
   .logo .mark{flex-shrink:0}
   .logo .wm{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:18px}
@@ -28,7 +28,7 @@
   p.sub{color:#cfe1da;font-size:14px;margin:10px 0 20px}
   label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:#eaf3ee}
   input{width:100%;padding:14px;border:0;border-radius:12px;font:inherit;font-size:16px;background:rgba(255,255,255,.95);color:#16302d}
-  .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:15px;background:#fff;color:#0f3d3e;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+  .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:15px;background:linear-gradient(135deg,#b88a44,#cda35a);color:#1c1a10;font:inherit;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 10px 22px rgba(184,138,68,.34)}
   .err{background:rgba(192,83,63,.25);border:1px solid rgba(255,255,255,.25);border-radius:11px;padding:11px 14px;font-size:14px;margin-bottom:14px}
   .demo{margin-top:22px;background:rgba(255,255,255,.1);border-radius:13px;padding:14px;font-size:13px;color:#eaf3ee}
   .demo code{background:rgba(0,0,0,.2);border-radius:6px;padding:2px 6px}
