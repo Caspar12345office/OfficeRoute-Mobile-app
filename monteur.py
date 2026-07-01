@@ -274,6 +274,10 @@ CREATE TABLE IF NOT EXISTS bus_issues(id INTEGER PRIMARY KEY AUTOINCREMENT, mont
   created_at TEXT, resolved_by TEXT, resolved_at TEXT);
 CREATE TABLE IF NOT EXISTS email_log(id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, direction TEXT,
   subject TEXT, body TEXT, ts TEXT, has_attachment INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS work_hours(id INTEGER PRIMARY KEY AUTOINCREMENT, monteur_id INTEGER, user_id INTEGER,
+  user_email TEXT, user_name TEXT, work_date TEXT, start_time TEXT, end_time TEXT,
+  worked_min INTEGER DEFAULT 0, overtime_min INTEGER DEFAULT 0, note TEXT, submitted_at TEXT,
+  UNIQUE(monteur_id, work_date));
 """
 
 
@@ -372,6 +376,29 @@ def my_unseen_decision(u):
 
 def _today_iso():
     return datetime.now().date().isoformat()
+
+
+def _parse_hm(s):
+    """'HH:MM' -> minuten sinds middernacht, of None."""
+    try:
+        h, m = (s or "").split(":")
+        h, m = int(h), int(m)
+        if 0 <= h < 24 and 0 <= m < 60:
+            return h * 60 + m
+    except Exception:
+        pass
+    return None
+
+
+def _calc_hours(start, end):
+    """Gewerkte en overuren-minuten uit start/eind. Pauzes worden NIET afgetrokken.
+    Alles boven 8 uur (480 min) telt als overuren. Retourneert (worked, overtime) of None."""
+    a, b = _parse_hm(start), _parse_hm(end)
+    if a is None or b is None or b <= a:
+        return None
+    worked = b - a
+    overtime = max(0, worked - 480)
+    return worked, overtime
 
 
 @bp.app_context_processor
@@ -643,7 +670,18 @@ def monteur_app():
                                WHERE p.monteur_id=? AND p.date=? ORDER BY p.sequence""", (mid, today)).fetchall()
     closed = bool(mid and conn.execute("SELECT 1 FROM route_closed WHERE monteur_id=? AND date=?",
                                        (mid, today)).fetchone())
+    # Urenregistratie: entry van vandaag + maandoverzicht (live)
+    hours_today, hours_month, month_total, month_ot = None, [], 0, 0
+    if mid:
+        hours_today = conn.execute("SELECT * FROM work_hours WHERE monteur_id=? AND work_date=?",
+                                   (mid, today)).fetchone()
+        hours_month = conn.execute("SELECT * FROM work_hours WHERE monteur_id=? AND work_date LIKE ? "
+                                   "ORDER BY work_date DESC", (mid, today[:7] + "%")).fetchall()
+        month_total = sum((r["worked_min"] or 0) for r in hours_month)
+        month_ot = sum((r["overtime_min"] or 0) for r in hours_month)
     conn.close()
+    # Herinnering: na 20:00 en vandaag nog geen uren ingediend
+    remind_hours = bool(mid and hours_today is None and datetime.now().hour >= 20)
     alerts = route_alerts(mid, bool(jobs)) if mid else []
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
     client_notes = [{"client": j["client"], "note": j["customer_note"]}
@@ -651,7 +689,10 @@ def monteur_app():
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
                            closed=closed, all_done=all_done, region=_region_for(jobs),
                            bus=_current_bus(), contacts=OFFICE_CONTACTS, client_notes=client_notes,
-                           maps_ready=(integ_status("google_maps") == "verbonden"))
+                           maps_ready=(integ_status("google_maps") == "verbonden"),
+                           hours_today=hours_today, hours_month=hours_month,
+                           month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,
+                           today_iso=today)
 
 
 @bp.route("/monteur/complete/<int:pid>", methods=["POST"])
@@ -738,6 +779,35 @@ def close_route():
     conn.execute("""INSERT INTO route_closed(monteur_id,date,ts) VALUES(?,?,?)
                     ON CONFLICT(monteur_id,date) DO UPDATE SET ts=excluded.ts""",
                  (u["monteur_id"], _today_iso(), datetime.now().isoformat(timespec="minutes")))
+    conn.commit()
+    conn.close()
+    return jsonify(ok=True)
+
+
+@bp.route("/monteur/uren", methods=["POST"])
+def monteur_uren():
+    """Uren van vandaag indienen/bijwerken. Verleden dagen zijn niet bewerkbaar."""
+    u = current_user()
+    if not u or not u["monteur_id"]:
+        return jsonify(ok=False, error="Geen monteurprofiel."), 403
+    start = (request.form.get("start") or "").strip()
+    end = (request.form.get("end") or "").strip()
+    note = (request.form.get("note") or "").strip()[:40]
+    calc = _calc_hours(start, end)
+    if not calc:
+        return jsonify(ok=False, error="Vul een geldige start- en eindtijd in (eind na start)."), 400
+    worked, overtime = calc
+    today = _today_iso()
+    conn = db()
+    # Zekerheidshalve: alleen vandaag mag geschreven worden (verleden blijft vast).
+    conn.execute("""INSERT INTO work_hours(monteur_id,user_id,user_email,user_name,work_date,start_time,end_time,
+                    worked_min,overtime_min,note,submitted_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(monteur_id,work_date) DO UPDATE SET start_time=excluded.start_time,
+                    end_time=excluded.end_time,worked_min=excluded.worked_min,overtime_min=excluded.overtime_min,
+                    note=excluded.note,submitted_at=excluded.submitted_at""",
+                 (u["monteur_id"], u["id"], u["email"], u["name"], today, start, end,
+                  worked, overtime, note, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()
     return jsonify(ok=True)

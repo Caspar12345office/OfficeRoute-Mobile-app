@@ -68,6 +68,27 @@
   .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#11403f;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88%;text-align:center}
   .toast.show{opacity:1}
   .annsent{color:var(--green)!important;border-color:var(--green)!important}
+  /* Urenregistratie */
+  .uren-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .uren-tf{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:10px 13px}
+  .uren-tf label{display:block;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 3px}
+  .uren-tf input{width:100%;border:0;background:transparent;font:inherit;font-size:22px;font-weight:700;color:var(--accent);padding:0}
+  .uren-sum{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:12px}
+  .uren-sum .row{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:3px 0}
+  .uren-sum .row b{font-size:15px}
+  .uren-sum hr{border:0;border-top:1px solid var(--line);margin:7px 0}
+  .uren-sum .over{color:var(--gold)}.uren-sum .over b{font-size:16px}
+  .uren-note input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;background:var(--panel);color:var(--ink)}
+  .uren-note .cnt{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+  .uren-done{background:#eaf4e4;border:1px solid #cfe8c2;color:#3b6d11;border-radius:12px;padding:10px 13px;font-size:13px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .uren-month .mh{display:flex;justify-content:space-between;align-items:center;margin:20px 2px 8px}
+  .uren-month .mh b{font-size:15px;color:var(--accent)}
+  .uren-month .mtot{font-size:12px;color:var(--muted)}
+  .um-row{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:6px}
+  .um-row .d{font-weight:700;font-size:13.5px}
+  .um-row .t{color:var(--muted);font-size:12px;margin-top:1px}
+  .um-row .ov{color:var(--gold);font-weight:700;font-size:12px}
+  [data-theme="dark"] .uren-done{background:#13302a;border-color:#2c5a44;color:#8fd07f}
 {% endblock %}
 
 {% block content %}
@@ -193,6 +214,44 @@
   <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon <svg class="ico"><use href="#ic-arrow-right"/></svg> “Zet op beginscherm”.</p>
 </div>
 
+<!-- UREN -->
+<div class="m-pane" id="pane-uren">
+  {% if not monteur %}
+    <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Uren registreren kan alleen met een gekoppeld monteurprofiel.</div></div>
+  {% else %}
+  <h3 style="margin:4px 2px 4px;font-size:17px;color:var(--accent)">Mijn uren</h3>
+  <p class="muted" style="font-size:12.5px;margin:0 0 14px">Vul je begin- en eindtijd in. Alles boven 8 uur telt automatisch als overuren.</p>
+  {% if hours_today %}<div class="uren-done"><svg class="ico"><use href="#ic-check"/></svg> Ingediend om {{ hours_today.submitted_at[-5:] }} — je kunt vandaag nog aanpassen.</div>{% endif %}
+  <div class="uren-times">
+    <div class="uren-tf"><label>Start</label><input type="time" id="uStart" value="{{ hours_today.start_time if hours_today else '' }}" onchange="urenCalc()"></div>
+    <div class="uren-tf"><label>Eind</label><input type="time" id="uEnd" value="{{ hours_today.end_time if hours_today else '' }}" onchange="urenCalc()"></div>
+  </div>
+  <div class="uren-sum">
+    <div class="row"><span>Gewerkt</span><b id="uWorked">—</b></div>
+    <hr>
+    <div class="row"><span>Normaal</span><b id="uNormal">—</b></div>
+    <div class="row over"><span>Overuren</span><b id="uOver">—</b></div>
+  </div>
+  <div class="uren-note">
+    <input type="text" id="uNote" maxlength="40" placeholder="Opmerking (optioneel), bv. in overleg 1 uur minder" value="{{ (hours_today.note or '') if hours_today else '' }}" oninput="urenNoteCnt()">
+    <div class="cnt"><span id="uNoteCnt">0</span>/40</div>
+  </div>
+  <div id="uErr" style="color:#a23d2a;font-size:13px;display:none;margin:4px 0"></div>
+  <button class="btn-lg primary" style="margin-top:6px" onclick="submitUren(this)">Indienen</button>
+  <div class="uren-month">
+    <div class="mh"><b>Deze maand</b><span class="mtot">Totaal {{ month_total//60 }}u {{ '%02d'|format(month_total%60) }}m{% if month_ot %} · <span style="color:var(--gold)">+{{ month_ot//60 }}u {{ '%02d'|format(month_ot%60) }}m over</span>{% endif %}</span></div>
+    {% for r in hours_month %}
+    <div class="um-row">
+      <div><div class="d">{{ r.work_date[8:10] }}-{{ r.work_date[5:7] }}</div><div class="t">{{ r.start_time }}–{{ r.end_time }}{% if r.note %} · {{ r.note }}{% endif %}</div></div>
+      <div style="text-align:right"><div>{{ r.worked_min//60 }}u {{ '%02d'|format(r.worked_min%60) }}m</div>{% if r.overtime_min %}<div class="ov">+{{ r.overtime_min//60 }}u {{ '%02d'|format(r.overtime_min%60) }}m</div>{% endif %}</div>
+    </div>
+    {% else %}
+    <div class="muted" style="font-size:13px">Nog geen uren deze maand.</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
 <!-- modals -->
 <div class="ov" id="completeModal"><div class="sheet">
   <h3>Levering afronden</h3><div class="muted" id="cmClient" style="font-size:13px;margin-bottom:6px"></div>
@@ -268,6 +327,25 @@
     <div style="display:flex;gap:10px"><button class="btn-lg ghost" onclick="document.getElementById('closeConfirm').style.display='none'">Nee</button><button class="btn-lg danger" onclick="doCloseRoute()">Ja, sluit route</button></div>
   </div>
 </div>
+
+{% if remind_hours %}
+<div class="leavepop" id="urenRemind" style="display:none">
+  <div class="lb">
+    <div class="ic"><svg class="ico"><use href="#ic-alert"/></svg></div>
+    <h3 style="color:var(--accent)">Vul je uren nog in</h3>
+    <p>Je hebt je uren van vandaag nog niet doorgegeven. Doe dit even voordat je stopt.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn-lg ghost" onclick="document.getElementById('urenRemind').style.display='none'">Later</button>
+      <button class="btn-lg primary" onclick="urenRemindGo()">Nu invullen</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){var k='oi-urenremind-{{ today_iso }}';try{if(sessionStorage.getItem(k))return;}catch(e){}
+ var el=document.getElementById('urenRemind');if(el)el.style.display='flex';try{sessionStorage.setItem(k,'1');}catch(e){}})();
+function urenRemindGo(){document.getElementById('urenRemind').style.display='none';mtab(null,'uren');}
+</script>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -278,6 +356,27 @@ var U_ANNOUNCE='{{ url_for("planning.monteur_announce", pid=0) }}';
 var U_CLOSE='{{ url_for("planning.close_route") }}';
 var U_LEAVE='{{ url_for("planning.api_leave_request") }}';
 var U_BUSISSUE='{{ url_for("planning.api_bus_issue") }}';
+var U_UREN='{{ url_for("planning.monteur_uren") }}';
+function _urenMins(v){var p=(v||'').split(':');if(p.length!==2)return null;var h=+p[0],m=+p[1];if(isNaN(h)||isNaN(m))return null;return h*60+m;}
+function _fmtHM(m){return Math.floor(m/60)+'u '+('0'+(m%60)).slice(-2)+'m';}
+function urenCalc(){
+  var s=document.getElementById('uStart'),e=document.getElementById('uEnd');if(!s||!e)return;
+  var a=_urenMins(s.value),b=_urenMins(e.value);
+  var w=document.getElementById('uWorked'),n=document.getElementById('uNormal'),o=document.getElementById('uOver');
+  if(a===null||b===null||b<=a){w.textContent='—';n.textContent='—';o.textContent='—';return;}
+  var worked=b-a,over=Math.max(0,worked-480),normal=worked-over;
+  w.textContent=_fmtHM(worked);n.textContent=_fmtHM(normal);o.textContent=over?'+'+_fmtHM(over):'0u 00m';
+}
+function urenNoteCnt(){var el=document.getElementById('uNote'),c=document.getElementById('uNoteCnt');if(el&&c)c.textContent=el.value.length;}
+function submitUren(btn){
+  var s=document.getElementById('uStart').value,e=document.getElementById('uEnd').value,note=document.getElementById('uNote').value,err=document.getElementById('uErr');
+  if(_urenMins(s)===null||_urenMins(e)===null||_urenMins(e)<=_urenMins(s)){err.textContent='Vul een geldige start- en eindtijd in (eind na start).';err.style.display='block';return;}
+  err.style.display='none';btn.disabled=true;
+  oiPost(U_UREN,{start:s,end:e,note:note}).then(function(res){
+    if(res.queued){toast('Bewaard — wordt verstuurd zodra je online bent');btn.disabled=false;}
+    else if(res.ok){toast('Uren ingediend');location.reload();}
+    else{btn.disabled=false;err.textContent=res.error||'Mislukt';err.style.display='block';}});
+}
 function toast(msg){var t=document.getElementById('oiToast');if(!t){t=document.createElement('div');t.id='oiToast';t.className='toast';document.body.appendChild(t);}
   t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
 function startStop(pid){
@@ -337,5 +436,6 @@ function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getEl
     btn.textContent='Uitzetten';st.textContent='Live locatie aan';}
   else{navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;btn.textContent='Aanzetten';st.textContent='Live locatie uit';
     if(navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:false})});});}}
+urenCalc();urenNoteCnt();
 </script>
 {% endblock %}
