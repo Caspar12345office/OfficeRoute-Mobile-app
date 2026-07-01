@@ -14,14 +14,18 @@
 <style>
   @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}
-  .wrap{width:100%;max-width:380px;margin:0 auto}
-  .logo{display:flex;align-items:center;gap:11px;margin-bottom:24px}
+  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+  /* subtiel honingraat-patroon dat naar onder vervaagt */
+  .bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  .glow{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;
+        background:radial-gradient(circle,rgba(205,163,90,.15),transparent 70%);z-index:0;pointer-events:none}
+  .wrap{position:relative;z-index:1;width:100%;max-width:380px;margin:22px auto 0}
+  .logo{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:26px}
   .logo .mark{flex-shrink:0}
   .logo .wm{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:18px}
   .logo small{display:block;font-size:10px;letter-spacing:.08em;color:#9fc2b9;text-transform:none}
   h1{font-size:22px;margin:0 0 4px}
-  p.sub{color:#cfe1da;font-size:14px;margin:0 0 20px}
+  p.sub{color:#cfe1da;font-size:14px;margin:10px 0 20px}
   label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:#eaf3ee}
   input{width:100%;padding:14px;border:0;border-radius:12px;font:inherit;font-size:16px;background:rgba(255,255,255,.95);color:#16302d}
   .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:15px;background:#fff;color:#0f3d3e;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
@@ -32,6 +36,26 @@
 </style>
 </head>
 <body>
+<svg class="bg" viewBox="0 0 390 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <pattern id="hx" width="34" height="30" patternUnits="userSpaceOnUse" patternTransform="scale(1.25)">
+      <g fill="none" stroke="#cda35a" stroke-width="1">
+        <path d="M17 0 L25.5 5 L25.5 15 L17 20 L8.5 15 L8.5 5 Z"/>
+        <path d="M0 15 L8.5 20 L8.5 30 L0 35 M34 15 L25.5 20 L25.5 30 L34 35"/>
+      </g>
+    </pattern>
+    <linearGradient id="hxfade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
+      <stop offset=".42" stop-color="#fff" stop-opacity=".2"/>
+      <stop offset=".72" stop-color="#fff" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="hxmask"><rect width="390" height="800" fill="url(#hxfade)"/></mask>
+  </defs>
+  <rect width="390" height="800" fill="url(#hx)" mask="url(#hxmask)"/>
+</svg>
+<div class="glow"></div>
+
 <div class="wrap">
   <div class="logo">
     <svg class="mark" width="46" height="46" viewBox="0 0 512 512" aria-hidden="true">
