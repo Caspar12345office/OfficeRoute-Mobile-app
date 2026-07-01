@@ -11,7 +11,7 @@ DB: PostgreSQL als DATABASE_URL is gezet (productie), anders lokaal SQLite (ontw
 from flask import (Blueprint, render_template, request, redirect, url_for, session,
                    flash, jsonify, Response, abort, send_from_directory)
 from werkzeug.security import check_password_hash, generate_password_hash
-import os, json, time, sqlite3, secrets, smtplib, threading
+import os, json, time, sqlite3, secrets, smtplib, threading, math
 
 # Licht/snel wachtwoord-hashen (Werkzeug-default 'scrypt' is traag op kleine servers).
 _PW_METHOD = "pbkdf2:sha256:30000"
@@ -101,7 +101,7 @@ _PG_URL = os.environ.get("DATABASE_URL", "")
 if _PG_URL.startswith("postgres://"):
     _PG_URL = _PG_URL.replace("postgres://", "postgresql://", 1)
 IS_PG = bool(_PG_URL)
-_NO_ID_TABLES = {"monteur_location", "route_closed", "integrations", "settings"}
+_NO_ID_TABLES = {"monteur_location", "route_closed", "integrations", "settings", "monteur_day_gps"}
 
 
 def _sub_placeholders(sql):
@@ -278,6 +278,8 @@ CREATE TABLE IF NOT EXISTS work_hours(id INTEGER PRIMARY KEY AUTOINCREMENT, mont
   user_email TEXT, user_name TEXT, work_date TEXT, start_time TEXT, end_time TEXT,
   worked_min INTEGER DEFAULT 0, overtime_min INTEGER DEFAULT 0, note TEXT, submitted_at TEXT,
   UNIQUE(monteur_id, work_date));
+CREATE TABLE IF NOT EXISTS monteur_day_gps(monteur_id INTEGER, date TEXT, home_since TEXT,
+  PRIMARY KEY(monteur_id, date));
 """
 
 
@@ -385,6 +387,18 @@ def _nl_hour():
         return datetime.now(ZoneInfo("Europe/Amsterdam")).hour
     except Exception:
         return datetime.now().hour
+
+
+HOME_RADIUS_M = 250   # binnen deze straal van huis = "thuis"
+
+
+def _dist_m(lat1, lng1, lat2, lng2):
+    """Afstand in meters tussen twee coördinaten (haversine)."""
+    r = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(min(1.0, math.sqrt(a)))
 
 
 def _parse_hm(s):
@@ -828,12 +842,32 @@ def api_location():
     if not u or not u["monteur_id"]:
         return jsonify(ok=False), 403
     data = request.get_json(force=True)
+    lat, lng = float(data["lat"]), float(data["lng"])
+    live = 1 if data.get("live", True) else 0
     conn = db()
     conn.execute("""INSERT INTO monteur_location(monteur_id,lat,lng,updated_at,live) VALUES(?,?,?,?,?)
                     ON CONFLICT(monteur_id) DO UPDATE SET lat=excluded.lat,lng=excluded.lng,
                     updated_at=excluded.updated_at,live=excluded.live""",
-                 (u["monteur_id"], float(data["lat"]), float(data["lng"]),
-                  datetime.now().isoformat(timespec="minutes"), 1 if data.get("live", True) else 0))
+                 (u["monteur_id"], lat, lng, datetime.now().isoformat(timespec="minutes"), live))
+    # Thuiskomst vastleggen (voor de urencontrole op kantoor): eerste keer binnen de
+    # thuisstraal = thuis-sinds; zolang hij nog onderweg is, blijft dit leeg.
+    if live:
+        try:
+            m = conn.execute("SELECT home_lat,home_lng FROM monteurs WHERE id=?", (u["monteur_id"],)).fetchone()
+            if m and m["home_lat"] and m["home_lng"]:
+                now = datetime.now().isoformat(timespec="minutes")
+                today = _today_iso()
+                if _dist_m(lat, lng, float(m["home_lat"]), float(m["home_lng"])) <= HOME_RADIUS_M:
+                    conn.execute("""INSERT INTO monteur_day_gps(monteur_id,date,home_since) VALUES(?,?,?)
+                                    ON CONFLICT(monteur_id,date) DO UPDATE SET
+                                    home_since=COALESCE(monteur_day_gps.home_since, excluded.home_since)""",
+                                 (u["monteur_id"], today, now))
+                else:
+                    conn.execute("""INSERT INTO monteur_day_gps(monteur_id,date,home_since) VALUES(?,?,NULL)
+                                    ON CONFLICT(monteur_id,date) DO UPDATE SET home_since=NULL""",
+                                 (u["monteur_id"], today))
+        except Exception:
+            pass
     conn.commit()
     conn.close()
     return jsonify(ok=True)
