@@ -378,6 +378,15 @@ def _today_iso():
     return datetime.now().date().isoformat()
 
 
+def _nl_hour():
+    """Huidig uur in Nederlandse tijd (Render draait in UTC). Valt terug op servertijd."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Europe/Amsterdam")).hour
+    except Exception:
+        return datetime.now().hour
+
+
 def _parse_hm(s):
     """'HH:MM' -> minuten sinds middernacht, of None."""
     try:
@@ -681,7 +690,7 @@ def monteur_app():
         month_ot = sum((r["overtime_min"] or 0) for r in hours_month)
     conn.close()
     # Herinnering: na 20:00 en vandaag nog geen uren ingediend
-    remind_hours = bool(mid and hours_today is None and datetime.now().hour >= 20)
+    remind_hours = bool(mid and hours_today is None and _nl_hour() >= 20)
     alerts = route_alerts(mid, bool(jobs)) if mid else []
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
     client_notes = [{"client": j["client"], "note": j["customer_note"]}
