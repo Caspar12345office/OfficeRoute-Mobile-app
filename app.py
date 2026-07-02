@@ -30,6 +30,11 @@ def _load_secret_key():
 
 app = Flask(__name__)
 app.secret_key = _load_secret_key()
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("DATABASE_URL")),
+)
 app.register_blueprint(bp)
 
 

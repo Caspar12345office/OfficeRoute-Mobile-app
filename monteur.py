@@ -9,7 +9,7 @@ DB: PostgreSQL als DATABASE_URL is gezet (productie), anders lokaal SQLite (ontw
 """
 
 from flask import (Blueprint, render_template, request, redirect, url_for, session,
-                   flash, jsonify, Response, abort, send_from_directory)
+                   flash, jsonify, Response, abort, send_from_directory, g)
 from werkzeug.security import check_password_hash, generate_password_hash
 import os, json, time, sqlite3, secrets, smtplib, threading, math
 
@@ -101,7 +101,34 @@ _PG_URL = os.environ.get("DATABASE_URL", "")
 if _PG_URL.startswith("postgres://"):
     _PG_URL = _PG_URL.replace("postgres://", "postgresql://", 1)
 IS_PG = bool(_PG_URL)
+
+# Connection pool voor PostgreSQL (valt veilig terug op directe verbindingen als
+# psycopg_pool ontbreekt).
+_PG_POOL = None
+_PG_POOL_TRIED = False
+
+
+def _get_pg_pool():
+    global _PG_POOL, _PG_POOL_TRIED
+    if _PG_POOL is not None or _PG_POOL_TRIED:
+        return _PG_POOL
+    _PG_POOL_TRIED = True
+    try:
+        from psycopg_pool import ConnectionPool
+        _PG_POOL = ConnectionPool(_PG_URL, min_size=1, max_size=3,
+                                  kwargs={"autocommit": True}, timeout=10, open=True)
+    except Exception:
+        _PG_POOL = None
+    return _PG_POOL
+
+
 _NO_ID_TABLES = {"monteur_location", "route_closed", "integrations", "settings", "monteur_day_gps"}
+
+# GPS-throttle + home-coordinaten-cache (per proces): voorkomt onnodige DB-writes en
+# een home-query bij elke live positie-push.
+_LOC_LAST = {}
+_HOME_CACHE = {}
+_LOC_MIN_INTERVAL = 12
 
 
 def _sub_placeholders(sql):
@@ -202,8 +229,15 @@ class _PgCur:
 
 class _PgConn:
     def __init__(self):
-        import psycopg
-        self._raw = psycopg.connect(_PG_URL, autocommit=True)
+        self._pool = _get_pg_pool()
+        if self._pool is not None:
+            try:
+                self._raw = self._pool.getconn()
+            except Exception:
+                self._pool = None
+        if self._pool is None:
+            import psycopg
+            self._raw = psycopg.connect(_PG_URL, autocommit=True)
         self._lastid = None
     def cursor(self):
         return _PgCur(self)
@@ -215,7 +249,10 @@ class _PgConn:
         pass
     def close(self):
         try:
-            self._raw.close()
+            if self._pool is not None:
+                self._pool.putconn(self._raw)
+            else:
+                self._raw.close()
         except Exception:
             pass
 
@@ -326,12 +363,17 @@ def init_db():
 #  Auth & helpers
 # --------------------------------------------------------------------------- #
 def current_user():
+    # Cache per request (Flask g): scheelt herhaalde users-queries per pagina/API-call.
+    if getattr(g, "_cur_user_set", False):
+        return g._cur_user
     uid = session.get("p_user_id")
-    if not uid:
-        return None
-    conn = db()
-    u = conn.execute("SELECT * FROM users WHERE id=? AND active=1", (uid,)).fetchone()
-    conn.close()
+    u = None
+    if uid:
+        conn = db()
+        u = conn.execute("SELECT * FROM users WHERE id=? AND active=1", (uid,)).fetchone()
+        conn.close()
+    g._cur_user = u
+    g._cur_user_set = True
     return u
 
 
@@ -641,6 +683,8 @@ def _record_bus_choice(u, item):
         return
     try:
         conn = db()
+        # Eén keuze per monteur per dag bewaren (voorkomt ongelimiteerde groei).
+        conn.execute("DELETE FROM bus_choices WHERE user_id=? AND date=?", (u["id"], _today_iso()))
         conn.execute("""INSERT INTO bus_choices(user_id,user_email,user_name,bus_id,bus_label,plate,date,ts)
                         VALUES(?,?,?,?,?,?,?,?)""",
                      (u["id"], u["email"], u["name"], item["id"], item["label"], item["plate"],
@@ -728,8 +772,12 @@ def monteur_complete(pid):
     sub = request.form.get("sub_outcome") or ""
     if outcome == "succesvol" and (not receiver or not signature):
         return jsonify(ok=False, error="Ontvanger en handtekening zijn verplicht."), 400
+    u = current_user()
     conn = db()
     p = conn.execute("SELECT * FROM planning WHERE id=?", (pid,)).fetchone()
+    if p and u and u["monteur_id"] and p["monteur_id"] != u["monteur_id"]:
+        conn.close()
+        return jsonify(ok=False, error="Dit is niet jouw order."), 403
     if p:
         conn.execute("UPDATE planning SET status='afgerond' WHERE id=?", (pid,))
         conn.execute("UPDATE orders SET status='afgerond', fulfilled=1, fulfilled_at=? WHERE id=?",
@@ -839,25 +887,39 @@ def monteur_uren():
 @bp.route("/api/location", methods=["POST"])
 def api_location():
     u = current_user()
-    if not u or not u["monteur_id"]:
+    if not u or not u["monteur_id"] or not has_perm("monteur_app"):
         return jsonify(ok=False), 403
-    data = request.get_json(force=True)
-    lat, lng = float(data["lat"]), float(data["lng"])
+    data = request.get_json(silent=True) or {}
+    try:
+        lat, lng = float(data["lat"]), float(data["lng"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify(ok=False, error="Ongeldige locatie."), 400
     live = 1 if data.get("live", True) else 0
+    mid = u["monteur_id"]
+    # Server-side throttle: sla live-pushes over die <_LOC_MIN_INTERVAL s na de vorige komen.
+    # (De 'uit'-melding live=0 gaat altijd door.)
+    now_ts = time.time()
+    if live and (now_ts - _LOC_LAST.get(mid, 0) < _LOC_MIN_INTERVAL):
+        return jsonify(ok=True, skipped=True)
+    _LOC_LAST[mid] = now_ts
     conn = db()
     conn.execute("""INSERT INTO monteur_location(monteur_id,lat,lng,updated_at,live) VALUES(?,?,?,?,?)
                     ON CONFLICT(monteur_id) DO UPDATE SET lat=excluded.lat,lng=excluded.lng,
                     updated_at=excluded.updated_at,live=excluded.live""",
-                 (u["monteur_id"], lat, lng, datetime.now().isoformat(timespec="minutes"), live))
+                 (mid, lat, lng, datetime.now().isoformat(timespec="minutes"), live))
     # Thuiskomst vastleggen (voor de urencontrole op kantoor): eerste keer binnen de
     # thuisstraal = thuis-sinds; zolang hij nog onderweg is, blijft dit leeg.
     if live:
         try:
-            m = conn.execute("SELECT home_lat,home_lng FROM monteurs WHERE id=?", (u["monteur_id"],)).fetchone()
-            if m and m["home_lat"] and m["home_lng"]:
+            home = _HOME_CACHE.get(mid)
+            if home is None:
+                m = conn.execute("SELECT home_lat,home_lng FROM monteurs WHERE id=?", (mid,)).fetchone()
+                home = (float(m["home_lat"]), float(m["home_lng"])) if (m and m["home_lat"] and m["home_lng"]) else (0.0, 0.0)
+                _HOME_CACHE[mid] = home
+            if home != (0.0, 0.0):
                 now = datetime.now().isoformat(timespec="minutes")
                 today = _today_iso()
-                if _dist_m(lat, lng, float(m["home_lat"]), float(m["home_lng"])) <= HOME_RADIUS_M:
+                if _dist_m(lat, lng, home[0], home[1]) <= HOME_RADIUS_M:
                     conn.execute("""INSERT INTO monteur_day_gps(monteur_id,date,home_since) VALUES(?,?,?)
                                     ON CONFLICT(monteur_id,date) DO UPDATE SET
                                     home_since=COALESCE(monteur_day_gps.home_since, excluded.home_since)""",

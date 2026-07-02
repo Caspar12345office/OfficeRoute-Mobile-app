@@ -432,7 +432,7 @@ function submitBusIssue(btn){var msg=document.getElementById('biMsg').value.trim
 var gpsWatch=null;
 function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getElementById('gpsState');
   if(gpsWatch===null){if(!navigator.geolocation){alert('Geen GPS beschikbaar.');return;}
-    gpsWatch=navigator.geolocation.watchPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:true})});st.textContent='Live locatie aan';},function(e){alert('Locatie niet beschikbaar: '+e.message);},{enableHighAccuracy:true,maximumAge:10000,timeout:15000});
+    gpsWatch=navigator.geolocation.watchPosition(function(p){var now=Date.now();if(now-(window._lastLoc||0)<15000){return;}window._lastLoc=now;fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:true})});st.textContent='Live locatie aan';},function(e){alert('Locatie niet beschikbaar: '+e.message);},{enableHighAccuracy:true,maximumAge:10000,timeout:15000});
     btn.textContent='Uitzetten';st.textContent='Live locatie aan';}
   else{navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;btn.textContent='Aanzetten';st.textContent='Live locatie uit';
     if(navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:false})});});}}
