@@ -519,11 +519,14 @@ def _api_send(to, subject, text, html=None):
     if not from_email:
         return False
     frm = "%s <%s>" % ((c.get("from_name") or "Office-Interior").strip(), from_email)
+    reply_to = (c.get("reply_to") or "").strip()
     key = (c.get("resend_api_key") or "").strip()
     if key:
         try:
-            payload = json.dumps({"from": frm, "to": recips, "subject": subject,
-                                  "text": text, "html": html or text}).encode("utf-8")
+            body = {"from": frm, "to": recips, "subject": subject, "text": text, "html": html or text}
+            if reply_to:
+                body["reply_to"] = reply_to
+            payload = json.dumps(body).encode("utf-8")
             req = urllib.request.Request("https://api.resend.com/emails", data=payload,
                                          headers={"Authorization": "Bearer " + key,
                                                   "Content-Type": "application/json"})
@@ -540,6 +543,8 @@ def _api_send(to, subject, text, html=None):
     msg["Subject"] = subject
     msg["From"] = frm
     msg["To"] = ", ".join(recips)
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg.set_content(text)
     if html:
         msg.add_alternative(html, subtype="html")
