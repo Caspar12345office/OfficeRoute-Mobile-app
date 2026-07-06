@@ -1098,8 +1098,8 @@ def version():
 
 @bp.route("/manifest.webmanifest")
 def manifest():
-    i192 = url_for("static", filename="icon-192.png")
-    i512 = url_for("static", filename="icon-512.png")
+    i192 = url_for("static", filename="icon-192.png", v="2")
+    i512 = url_for("static", filename="icon-512.png", v="2")
     data = {"name": "OfficeRoute — Monteur", "short_name": "OfficeRoute",
             "start_url": "/monteur", "scope": "/", "display": "standalone",
             "background_color": "#0f3d3e", "theme_color": "#0f3d3e",
