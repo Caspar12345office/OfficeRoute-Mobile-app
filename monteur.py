@@ -332,6 +332,17 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+    # Kolommen voor "planning die leert" (gemeten montageduur) + login-blokkade.
+    # De gedeelde tabel heeft ze al via de kantoorsoftware; hier veiligheidshalve ook.
+    for _stmt in ("ALTER TABLE planning ADD COLUMN onderweg_at TEXT",
+                  "ALTER TABLE planning ADD COLUMN aangekomen_at TEXT",
+                  "ALTER TABLE planning ADD COLUMN afgerond_at TEXT",
+                  "ALTER TABLE users ADD COLUMN login_fails INTEGER DEFAULT 0",
+                  "ALTER TABLE users ADD COLUMN locked INTEGER DEFAULT 0"):
+        try:
+            conn.execute(_stmt); conn.commit()
+        except Exception:
+            pass
     # mini dev-seed alleen lokaal (SQLite) zodat de app testbaar is
     if not IS_PG:
         try:
@@ -630,7 +641,17 @@ def login():
             conn = db()
             u = conn.execute("SELECT * FROM users WHERE lower(email)=? AND active=1", (email,)).fetchone()
             conn.close()
-            if u and check_password_hash(u["password"], pw):
+            _keys = set(u.keys()) if u else set()
+            _locked = int((u["locked"] if "locked" in _keys else 0) or 0) if u else 0
+            if u and _locked == 1:
+                error = ("Dit account is geblokkeerd na te veel mislukte inlogpogingen. "
+                         "Vraag een beheerder om het account te ontgrendelen.")
+            elif u and check_password_hash(u["password"], pw):
+                # Juist wachtwoord: teller mislukte pogingen weer op nul.
+                try:
+                    cu = db(); cu.execute("UPDATE users SET login_fails=0 WHERE id=?", (u["id"],)); cu.commit(); cu.close()
+                except Exception:
+                    pass
                 # Zware hash (scrypt/hoge telling) eenmalig omzetten naar de lichte methode.
                 if not (u["password"] or "").startswith(_PW_METHOD):
                     try:
@@ -651,6 +672,22 @@ def login():
                 demo_code = code
                 session["twofa"] = {"uid": u["id"], "code": code, "exp": time.time() + 300,
                                     "email": u["email"], "sent": code_sent}
+            elif u:
+                # Bestaand account, fout wachtwoord: teller ophogen en na 5 pogingen blokkeren.
+                try:
+                    fails = int((u["login_fails"] if "login_fails" in _keys else 0) or 0) + 1
+                    cu = db()
+                    if fails >= 5:
+                        cu.execute("UPDATE users SET login_fails=?, locked=1 WHERE id=?", (fails, u["id"]))
+                        error = ("Te veel mislukte pogingen. Dit account is nu geblokkeerd. "
+                                 "Vraag een beheerder om het te ontgrendelen.")
+                    else:
+                        cu.execute("UPDATE users SET login_fails=? WHERE id=?", (fails, u["id"]))
+                        error = ("Onjuiste inloggegevens. Nog %d poging(en) voordat het account "
+                                 "wordt geblokkeerd." % (5 - fails))
+                    cu.commit(); cu.close()
+                except Exception:
+                    error = "Onjuiste inloggegevens."
             else:
                 error = "Onjuiste inloggegevens."
     return render_template("planning/login.html", error=error, show_2fa=show_2fa,
@@ -784,7 +821,8 @@ def monteur_complete(pid):
         conn.close()
         return jsonify(ok=False, error="Dit is niet jouw order."), 403
     if p:
-        conn.execute("UPDATE planning SET status='afgerond' WHERE id=?", (pid,))
+        conn.execute("UPDATE planning SET status='afgerond', afgerond_at=? WHERE id=?",
+                     (datetime.now().isoformat(timespec="seconds"), pid))
         conn.execute("UPDATE orders SET status='afgerond', fulfilled=1, fulfilled_at=? WHERE id=?",
                      (datetime.now().isoformat(timespec="minutes"), p["order_id"]))
         conn.execute("""INSERT INTO deliveries(order_id,monteur_id,receiver,signature,outcome,sub_outcome,ts)
@@ -804,8 +842,25 @@ def monteur_start(pid):
     conn = db()
     p = conn.execute("SELECT * FROM planning WHERE id=? AND monteur_id=?", (pid, u["monteur_id"])).fetchone()
     if p:
-        conn.execute("UPDATE planning SET status='onderweg' WHERE id=?", (pid,))
+        conn.execute("UPDATE planning SET status='onderweg', onderweg_at=COALESCE(onderweg_at,?) WHERE id=?",
+                     (datetime.now().isoformat(timespec="seconds"), pid))
         conn.execute("UPDATE orders SET status='onderweg' WHERE id=?", (p["order_id"],))
+        conn.commit()
+    conn.close()
+    return jsonify(ok=True)
+
+
+@bp.route("/monteur/arrive/<int:pid>", methods=["POST"])
+def monteur_arrive(pid):
+    """Monteur meldt dat hij bij de klant is = startpunt van de gemeten montageduur."""
+    if not has_perm("monteur_app"):
+        return jsonify(ok=False), 403
+    u = current_user()
+    conn = db()
+    p = conn.execute("SELECT * FROM planning WHERE id=? AND monteur_id=?", (pid, u["monteur_id"])).fetchone()
+    if p:
+        conn.execute("UPDATE planning SET status='onderweg', aangekomen_at=COALESCE(aangekomen_at,?) WHERE id=?",
+                     (datetime.now().isoformat(timespec="seconds"), pid))
         conn.commit()
     conn.close()
     return jsonify(ok=True)

@@ -58,8 +58,11 @@
   .stopline b{font-size:14px}.stopline .ad2{font-size:13px;color:var(--muted)}
   .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:200}
   .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px 20px 0;max-height:90vh;overflow:auto}
-  .ov .sheetacts{position:sticky;bottom:0;background:#fff;display:flex;gap:10px;margin-top:14px;padding:12px 0 calc(env(safe-area-inset-bottom) + 12px);box-shadow:0 -10px 14px -10px rgba(0,0,0,.15)}
+  .ov .sheetacts{position:sticky;bottom:0;background:#fff;display:flex;gap:10px;margin-top:14px;padding:12px 0 calc(env(safe-area-inset-bottom) + 68px);box-shadow:0 -10px 14px -10px rgba(0,0,0,.15)}
+  .ov .sheetacts .btn-lg{padding:13px;font-size:15px}
   [data-theme="dark"] .ov .sheetacts{background:#16302b}
+  .btn-lg.gold{background:var(--gold);color:#fff}
+  .stephint{font-size:11.5px;color:var(--muted);text-align:center;margin:-2px 0 8px}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
   .ov label{font-size:13px;font-weight:600;display:block;margin:10px 0 4px}
   .ov input,.ov select,.ov textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:15px}
@@ -159,7 +162,8 @@
         <a target="_blank" href="https://waze.com/ul?q={{ q }}&navigate=yes">Waze</a>
       </div>
       {% if j.status=='gepland' %}<button class="btn-lg ghost" style="margin-bottom:8px" onclick="onderwegNaar({{ j.id }})"><svg class="ico"><use href="#ic-truck"/></svg> Onderweg naar deze klant</button>
-      <div style="font-size:11.5px;color:var(--muted);text-align:center;margin:-2px 0 8px">De klant en kantoor zien meteen dat je onderweg bent.</div>{% endif %}
+      <div class="stephint">De klant krijgt bericht dat je onderweg bent, kantoor ziet het ook.</div>
+      {% elif not j.aangekomen_at %}<button class="btn-lg gold" style="margin-bottom:8px" onclick="arriveStop({{ j.id }})"><svg class="ico"><use href="#ic-pin"/></svg> Ik ben bij de klant</button>{% endif %}
       {% if j.status!='afgerond' %}<button class="btn-lg primary" onclick="openComplete({{ j.id }}, '{{ j.client|e }}')">Levering afronden</button>{% endif %}
     </div>
     {% endfor %}
@@ -357,6 +361,7 @@ function urenRemindGo(){document.getElementById('urenRemind').style.display='non
 {% block scripts %}
 <script>
 var U_START='{{ url_for("planning.monteur_start", pid=0) }}';
+var U_ARRIVE='{{ url_for("planning.monteur_arrive", pid=0) }}';
 var U_COMPLETE='{{ url_for("planning.monteur_complete", pid=0) }}';
 var U_ANNOUNCE='{{ url_for("planning.monteur_announce", pid=0) }}';
 var U_CLOSE='{{ url_for("planning.close_route") }}';
@@ -390,6 +395,7 @@ function startStop(pid){
     if(res.queued){toast('Bewaard - wordt verstuurd zodra je online bent');}else{location.reload();}});
 }
 function onderwegNaar(pid){ oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).catch(function(){}); startStop(pid); }
+function arriveStop(pid){ oiPost(U_ARRIVE.slice(0,-1)+pid,{}).then(function(){ location.reload(); }); }
 function announce(pid, btn){
   btn.disabled=true;
   oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).then(function(res){
