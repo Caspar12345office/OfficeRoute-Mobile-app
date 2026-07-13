@@ -1,5 +1,5 @@
 """
-OfficeRoute — monteur-app (zelfstandige service).
+OfficeRoute - monteur-app (zelfstandige service).
 
 Aparte repo/Render-service die via dezelfde PostgreSQL-database samenwerkt met de
 kantoorsoftware (planning). Bevat alleen de monteur-functionaliteit. De database wordt
@@ -36,7 +36,7 @@ ROLE_LABELS = {"beheerder": "Beheerder", "manager": "Manager", "planner": "Plann
                "administratie": "Administratie", "monteur": "Monteur"}
 PERMISSION_KEYS = ["view_planning", "edit_planning", "monteur_app", "complete_deliveries"]
 
-# Wagenpark — kentekens van onze vloot (buskeuze toont "Bus N" + kenteken, geen merk/chauffeur)
+# Wagenpark - kentekens van onze vloot (buskeuze toont "Bus N" + kenteken, geen merk/chauffeur)
 # label leeg = voertuig wordt op zijn kenteken getoond; alleen de bakwagen
 # heeft een eigen naam ("Bakwagen") met de kentekengegevens erbij.
 FLEET = [
@@ -95,7 +95,7 @@ except Exception:
     pass
 
 # --------------------------------------------------------------------------- #
-#  Database-laag (gelijk aan de kantoorsoftware) — SQLite of PostgreSQL
+#  Database-laag (gelijk aan de kantoorsoftware) - SQLite of PostgreSQL
 # --------------------------------------------------------------------------- #
 _PG_URL = os.environ.get("DATABASE_URL", "")
 if _PG_URL.startswith("postgres://"):
@@ -270,7 +270,7 @@ def db():
 
 
 # --------------------------------------------------------------------------- #
-#  Schema garanderen (geen seed — de kantoorsoftware beheert de data).
+#  Schema garanderen (geen seed - de kantoorsoftware beheert de data).
 #  Lokaal (SQLite) een mini dev-seed zodat je de app kunt testen.
 # --------------------------------------------------------------------------- #
 SCHEMA = """
@@ -502,7 +502,7 @@ def _email_configured():
 
 
 def _mail_live():
-    """True als mail echt verstuurd wordt (ingesteld + testmodus uit) — zonder netwerkcall."""
+    """True als mail echt verstuurd wordt (ingesteld + testmodus uit) - zonder netwerkcall."""
     return _email_configured() and (_email_cfg().get("send_live") or "0") == "1"
 
 
@@ -646,7 +646,7 @@ def login():
                     code_sent = True
                     threading.Thread(target=_send_2fa_email, args=(u["email"], code, u["name"]),
                                      daemon=True).start()
-                # Code ALTIJD ook op het scherm tonen als terugval — zo lukt inloggen
+                # Code ALTIJD ook op het scherm tonen als terugval - zo lukt inloggen
                 # ook als de e-mail (nog) niet aankomt. Verbergen zodra mail bewezen werkt.
                 demo_code = code
                 session["twofa"] = {"uid": u["id"], "code": code, "exp": time.time() + 300,
@@ -813,7 +813,7 @@ def monteur_start(pid):
 
 @bp.route("/monteur/announce/<int:pid>", methods=["POST"])
 def monteur_announce(pid):
-    """'Ik kom eraan' — informeer de klant (e-mail best-effort) en log het zodat kantoor het ziet."""
+    """'Ik kom eraan' - informeer de klant (e-mail best-effort) en log het zodat kantoor het ziet."""
     u = current_user()
     if not u or not has_perm("monteur_app"):
         return jsonify(ok=False), 403
@@ -1050,8 +1050,8 @@ def _send_bus_issue_email(monteur_name, bus_label, plate, message):
     """E-mail naar kantoor (Jorik & Stijn) over een gemeld bus-probleem."""
     return _smtp_send(BUS_ISSUE_RECIPIENTS,
                       ("Bus-issue: %s %s" % (bus_label or "onbekende bus", plate or "")).strip(),
-                      "%s meldt een probleem met %s (%s):\n\n%s\n\n— OfficeRoute monteur-app"
-                      % (monteur_name, bus_label or "—", plate or "—", message))
+                      "%s meldt een probleem met %s (%s):\n\n%s\n\n- OfficeRoute monteur-app"
+                      % (monteur_name, bus_label or "-", plate or "-", message))
 
 
 @bp.route("/api/bus-issue", methods=["POST"])
@@ -1100,7 +1100,7 @@ def version():
 def manifest():
     i192 = url_for("static", filename="icon-192.png", v="2")
     i512 = url_for("static", filename="icon-512.png", v="2")
-    data = {"name": "OfficeRoute — Monteur", "short_name": "OfficeRoute",
+    data = {"name": "OfficeRoute - Monteur", "short_name": "OfficeRoute",
             "start_url": "/monteur", "scope": "/", "display": "standalone",
             "background_color": "#0f3d3e", "theme_color": "#0f3d3e",
             "icons": [{"src": i192, "sizes": "192x192", "type": "image/png", "purpose": "any"},
@@ -1109,15 +1109,28 @@ def manifest():
     return Response(json.dumps(data), mimetype="application/manifest+json")
 
 
+@bp.after_request
+def _no_cache_html(resp):
+    # Dynamische HTML nooit cachen: dwingt iPhone/Safari/PWA om de verse versie te halen.
+    if resp.headers.get("Content-Type", "").startswith("text/html"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @bp.route("/sw.js")
 def service_worker():
-    js = ("const C='officeroute-app-v1';"
+    js = ("const C='officeroute-app-v2';"
           "self.addEventListener('install',e=>self.skipWaiting());"
-          "self.addEventListener('activate',e=>self.clients.claim());"
+          "self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all("
+          "ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));"
           "self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;"
+          "if(r.mode==='navigate'){e.respondWith(fetch(r).catch(()=>caches.match(r)));return;}"
           "e.respondWith(fetch(r).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(r,cp));return res;})"
           ".catch(()=>caches.match(r)));});")
-    return Response(js, mimetype="application/javascript", headers={"Service-Worker-Allowed": "/"})
+    return Response(js, mimetype="application/javascript",
+                    headers={"Service-Worker-Allowed": "/",
+                             "Cache-Control": "no-cache, no-store, must-revalidate"})
 
 
 init_db()

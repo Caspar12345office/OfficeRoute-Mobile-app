@@ -2,16 +2,21 @@
 {% block title %}Mijn route · OfficeRoute{% endblock %}
 {% block m_top %}<span class="brand">OfficeRoute</span>{% endblock %}
 {% block app_css %}
-  .dayhead{background:linear-gradient(150deg,#11403f,#1a6364);color:#fff;border-radius:18px;padding:16px 17px;margin-bottom:14px;box-shadow:0 10px 24px rgba(15,61,62,.22)}
-  .dayhead .dhtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .dayhead .hi{font-size:12.5px;color:#bcdcd2;letter-spacing:.02em}
-  .dayhead .regio{background:rgba(184,138,68,.22);border:1px solid rgba(184,138,68,.5);color:#f1d9a8;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
-  .dayhead h2{margin:8px 0 0;font-size:23px;color:#fff;font-weight:700}
-  .dayhead .slogan{margin-top:3px;font-size:14px;color:#e7f1ec}
-  .dayhead .busline{margin-top:11px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border-radius:10px;padding:7px 11px;font-size:13px;font-weight:600}
+  .dayhead{padding:4px 2px 14px;margin-bottom:14px;border-bottom:1px solid var(--rule)}
+  .dayhead .dhtop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .dayhead .regio{background:#f3e6c9;border:1px solid #e6cf9c;color:#8a6a1e;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .dayhead h2{margin:0;font-size:24px;color:var(--accent);font-weight:700;letter-spacing:-.01em}
+  .dayhead .slogan{margin-top:4px;font-size:14px;color:var(--muted)}
+  .dayhead .busline{margin-top:11px;display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:13px;font-weight:600;color:var(--accent)}
   .dayhead .sum{display:flex;gap:8px;margin-top:13px}
-  .dayhead .sum div{flex:1;background:rgba(255,255,255,.12);border-radius:12px;padding:9px;text-align:center}
-  .dayhead .sum b{display:block;font-size:19px;color:#fff;font-weight:700}.dayhead .sum span{font-size:10.5px;color:#bcdcd2}
+  .dayhead .sum div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 5px;text-align:center}
+  .dayhead .sum b{display:block;font-size:19px;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}.dayhead .sum span{font-size:10.5px;color:var(--muted)}
+  [data-theme="dark"] .dayhead{border-bottom-color:var(--line)}
+  [data-theme="dark"] .dayhead h2,[data-theme="dark"] .dayhead .sum b,[data-theme="dark"] .dayhead .busline{color:#eaf3ef}
+  [data-theme="dark"] .dayhead .regio{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  @keyframes jcrise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .jc{box-shadow:0 10px 22px -16px rgba(120,90,30,.35);animation:jcrise .5s cubic-bezier(.23,1,.32,1) both}
+  @media(prefers-reduced-motion:reduce){.jc{animation:none}}
   .jc{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 6px 18px rgba(15,61,62,.05)}
   .jc.done{background:#eaf4e4;border-color:#cfe8c2;opacity:.8}
   .jc .r1{display:flex;align-items:center;gap:9px;margin-bottom:6px}
@@ -51,8 +56,10 @@
   .stopline .seq{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
   .stopline.done{opacity:.5}
   .stopline b{font-size:14px}.stopline .ad2{font-size:13px;color:var(--muted)}
-  .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:90}
-  .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px;max-height:92vh;overflow:auto}
+  .ov{position:fixed;inset:0;background:rgba(15,30,28,.55);display:none;align-items:flex-end;justify-content:center;z-index:200}
+  .ov .sheet{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:390px;padding:20px 20px 0;max-height:90vh;overflow:auto}
+  .ov .sheetacts{position:sticky;bottom:0;background:#fff;display:flex;gap:10px;margin-top:14px;padding:12px 0 calc(env(safe-area-inset-bottom) + 12px);box-shadow:0 -10px 14px -10px rgba(0,0,0,.15)}
+  [data-theme="dark"] .ov .sheetacts{background:#16302b}
   .ov .sheet h3{margin:0 0 4px;color:var(--accent);font-size:18px}
   .ov label{font-size:13px;font-weight:600;display:block;margin:10px 0 4px}
   .ov input,.ov select,.ov textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:15px}
@@ -104,14 +111,13 @@
         <div><b>{{ jobs|selectattr('status','equalto','afgerond')|list|length }}</b><span>afgerond</span></div>
         {% if bus %}<div><b style="font-size:14px">{{ bus.plate }}</b><span>{{ bus.label }}</span></div>{% endif %}
       </div>
-      <p class="muted2">Fijne avond — tot morgen! 👋</p>
+      <p class="muted2">Fijne avond - tot morgen! 👋</p>
     </div>
   {% elif not monteur %}
     <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Vraag de beheerder je account aan een monteur te koppelen.</div></div>
   {% else %}
     <div class="dayhead">
-      <div class="dhtop"><span class="hi">Vandaag · {{ HOME_BASE }}</span>{% if region %}<span class="regio"><svg class="ico"><use href="#ic-pin"/></svg> Regio {{ region }}</span>{% endif %}</div>
-      <h2>Hoi {{ monteur.name }},</h2>
+      <div class="dhtop"><h2>Hoi {{ monteur.name }}</h2>{% if region %}<span class="regio"><svg class="ico"><use href="#ic-pin"/></svg> Regio {{ region }}</span>{% endif %}</div>
       <div class="slogan">Werkse vandaag! 💪</div>
       {% if bus %}<div class="busline"><svg class="ico"><use href="#ic-truck"/></svg> {% if bus.label %}{{ bus.label }} · {% endif %}{{ bus.plate }}</div>{% endif %}
       <div class="sum">
@@ -139,10 +145,10 @@
     {% for j in jobs %}
     <div class="jc {{ 'done' if j.status=='afgerond' }}">
       <div class="r1"><span class="seq">{{ loop.index }}</span><span class="num">#{{ j.order_number }}</span>
-        {% if j.status=='afgerond' %}<span class="donepill"><svg class="ico"><use href="#ic-check"/></svg> Afgerond</span>{% elif j.status=='onderweg' %}<span class="pill" style="margin-left:auto;background:#dbeafe;color:#1e54c8">onderweg</span>{% endif %}</div>
+        {% if j.status=='afgerond' %}<span class="donepill"><svg class="ico"><use href="#ic-check"/></svg> Afgerond</span>{% elif j.status=='onderweg' %}<span class="pill" style="margin-left:auto;background:#f3e6c9;color:#8a6a1e">onderweg</span>{% endif %}</div>
       <div class="cl">{{ j.client }}</div>
       <div class="ad">{{ j.delivery_address }}</div>
-      <div class="box items"><svg class="ico"><use href="#ic-box"/></svg> {{ j.items or '—' }}</div>
+      <div class="box items"><svg class="ico"><use href="#ic-box"/></svg> {{ j.items or '-' }}</div>
       {% if j.service_type=='ophalen' %}<div class="box note"><svg class="ico"><use href="#ic-download"/></svg> Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
       {% if j.instructions %}<div class="box note"><svg class="ico"><use href="#ic-pencil"/></svg> Van de planning: {{ j.instructions }}</div>{% endif %}
       {% if j.customer_note %}<div class="box cust"><svg class="ico"><use href="#ic-bell"/></svg> Bericht van klant: {{ j.customer_note }}</div>{% endif %}
@@ -152,8 +158,8 @@
         <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ q }}">Google Maps</a>
         <a target="_blank" href="https://waze.com/ul?q={{ q }}&navigate=yes">Waze</a>
       </div>
-      {% if j.status!='afgerond' %}<button class="btn-lg ghost" style="margin-bottom:8px" id="ann{{ j.id }}" onclick="announce({{ j.id }},this)"><svg class="ico"><use href="#ic-bell"/></svg> Klant: ik kom eraan</button>{% endif %}
-      {% if j.status=='gepland' %}<button class="btn-lg ghost" style="margin-bottom:8px" onclick="startStop({{ j.id }})">🚗 Onderweg naar deze klant</button>{% endif %}
+      {% if j.status=='gepland' %}<button class="btn-lg ghost" style="margin-bottom:8px" onclick="onderwegNaar({{ j.id }})"><svg class="ico"><use href="#ic-truck"/></svg> Onderweg naar deze klant</button>
+      <div style="font-size:11.5px;color:var(--muted);text-align:center;margin:-2px 0 8px">De klant en kantoor zien meteen dat je onderweg bent.</div>{% endif %}
       {% if j.status!='afgerond' %}<button class="btn-lg primary" onclick="openComplete({{ j.id }}, '{{ j.client|e }}')">Levering afronden</button>{% endif %}
     </div>
     {% endfor %}
@@ -167,7 +173,7 @@
   {% if alerts %}
     <div class="alert"><svg class="ico"><use href="#ic-alert"/></svg> <div><b>Files / werkzaamheden op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}Je aankomsttijden zijn bijgewerkt.</div></div>
   {% else %}
-    <div class="okbar"><svg class="ico"><use href="#ic-check"/></svg> Geen files of werkzaamheden op je route — je kunt vlot doorrijden.</div>
+    <div class="okbar"><svg class="ico"><use href="#ic-check"/></svg> Geen files of werkzaamheden op je route - je kunt vlot doorrijden.</div>
   {% endif %}
 
   <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Berichten van klanten</h3>
@@ -196,7 +202,7 @@
     <span class="cbtn"><svg class="ico"><use href="#ic-phone"/></svg> Bellen</span>
   </a>
   {% endfor %}
-  <p class="muted" style="font-size:12px;text-align:center;margin-top:14px">Eén tik en je belt direct — met je eigen telefoon en abonnement.</p>
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:14px">Eén tik en je belt direct - met je eigen telefoon en abonnement.</p>
 </div>
 
 <!-- IK -->
@@ -221,16 +227,16 @@
   {% else %}
   <h3 style="margin:4px 2px 4px;font-size:17px;color:var(--accent)">Mijn uren</h3>
   <p class="muted" style="font-size:12.5px;margin:0 0 14px">Vul je begin- en eindtijd in. Alles boven 8 uur telt automatisch als overuren.</p>
-  {% if hours_today %}<div class="uren-done"><svg class="ico"><use href="#ic-check"/></svg> Ingediend om {{ hours_today.submitted_at[-5:] }} — je kunt vandaag nog aanpassen.</div>{% endif %}
+  {% if hours_today %}<div class="uren-done"><svg class="ico"><use href="#ic-check"/></svg> Ingediend om {{ hours_today.submitted_at[-5:] }} - je kunt vandaag nog aanpassen.</div>{% endif %}
   <div class="uren-times">
     <div class="uren-tf"><label>Start</label><input type="time" id="uStart" value="{{ hours_today.start_time if hours_today else '' }}" onchange="urenCalc()"></div>
     <div class="uren-tf"><label>Eind</label><input type="time" id="uEnd" value="{{ hours_today.end_time if hours_today else '' }}" onchange="urenCalc()"></div>
   </div>
   <div class="uren-sum">
-    <div class="row"><span>Gewerkt</span><b id="uWorked">—</b></div>
+    <div class="row"><span>Gewerkt</span><b id="uWorked">-</b></div>
     <hr>
-    <div class="row"><span>Normaal</span><b id="uNormal">—</b></div>
-    <div class="row over"><span>Overuren</span><b id="uOver">—</b></div>
+    <div class="row"><span>Normaal</span><b id="uNormal">-</b></div>
+    <div class="row over"><span>Overuren</span><b id="uOver">-</b></div>
   </div>
   <div class="uren-note">
     <input type="text" id="uNote" maxlength="40" placeholder="Opmerking (optioneel), bv. in overleg 1 uur minder" value="{{ (hours_today.note or '') if hours_today else '' }}" oninput="urenNoteCnt()">
@@ -242,7 +248,7 @@
     <div class="mh"><b>Deze maand</b><span class="mtot">Totaal {{ month_total//60 }}u {{ '%02d'|format(month_total%60) }}m{% if month_ot %} · <span style="color:var(--gold)">+{{ month_ot//60 }}u {{ '%02d'|format(month_ot%60) }}m over</span>{% endif %}</span></div>
     {% for r in hours_month %}
     <div class="um-row">
-      <div><div class="d">{{ r.work_date[8:10] }}-{{ r.work_date[5:7] }}</div><div class="t">{{ r.start_time }}–{{ r.end_time }}{% if r.note %} · {{ r.note }}{% endif %}</div></div>
+      <div><div class="d">{{ r.work_date[8:10] }}-{{ r.work_date[5:7] }}</div><div class="t">{{ r.start_time }}-{{ r.end_time }}{% if r.note %} · {{ r.note }}{% endif %}</div></div>
       <div style="text-align:right"><div>{{ r.worked_min//60 }}u {{ '%02d'|format(r.worked_min%60) }}m</div>{% if r.overtime_min %}<div class="ov">+{{ r.overtime_min//60 }}u {{ '%02d'|format(r.overtime_min%60) }}m</div>{% endif %}</div>
     </div>
     {% else %}
@@ -265,7 +271,7 @@
     <button type="button" onclick="clearSig()" style="background:none;border:0;color:var(--muted);font-size:12.5px;padding:6px 0">opnieuw tekenen</button>
   </div>
   <div id="cmErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
-  <div style="display:flex;gap:10px;margin-top:8px"><button class="btn-lg ghost" onclick="document.getElementById('completeModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitComplete()">Bevestig &amp; volgende</button></div>
+  <div class="sheetacts"><button class="btn-lg ghost" onclick="document.getElementById('completeModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitComplete()">Bevestig &amp; volgende</button></div>
 </div></div>
 
 <div class="ov" id="leaveModal"><div class="sheet">
@@ -277,7 +283,7 @@
     <div id="lvToWrap"><label>Tot en met</label><input type="date" name="date_to"></div>
     <div id="lvTimeWrap" style="display:none"><label>Tijd</label><div style="display:flex;gap:8px"><input type="time" name="time_from"><input type="time" name="time_to"></div></div>
     <label>Toelichting</label><textarea name="reason" rows="2" placeholder="bv. tandarts om 10:00"></textarea>
-    <div style="display:flex;gap:10px;margin-top:12px"><button type="button" class="btn-lg ghost" onclick="document.getElementById('leaveModal').style.display='none'">Annuleren</button><button type="button" class="btn-lg primary" onclick="submitLeave(this)">Indienen</button></div>
+    <div class="sheetacts"><button type="button" class="btn-lg ghost" onclick="document.getElementById('leaveModal').style.display='none'">Annuleren</button><button type="button" class="btn-lg primary" onclick="submitLeave(this)">Indienen</button></div>
   </form>
 </div></div>
 
@@ -299,7 +305,7 @@
   <label>Wat is er met de bus?</label>
   <textarea id="biMsg" rows="4" placeholder="Bijv. 'Ik hoor een piepje als ik harder rijd dan 50 km/u.'"></textarea>
   <div id="biErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
-  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn-lg ghost" onclick="document.getElementById('busIssueModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitBusIssue(this)">Versturen</button></div>
+  <div class="sheetacts"><button class="btn-lg ghost" onclick="document.getElementById('busIssueModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitBusIssue(this)">Versturen</button></div>
 </div></div>
 
 {% if client_notes %}
@@ -363,7 +369,7 @@ function urenCalc(){
   var s=document.getElementById('uStart'),e=document.getElementById('uEnd');if(!s||!e)return;
   var a=_urenMins(s.value),b=_urenMins(e.value);
   var w=document.getElementById('uWorked'),n=document.getElementById('uNormal'),o=document.getElementById('uOver');
-  if(a===null||b===null||b<=a){w.textContent='—';n.textContent='—';o.textContent='—';return;}
+  if(a===null||b===null||b<=a){w.textContent='-';n.textContent='-';o.textContent='-';return;}
   var worked=b-a,over=Math.max(0,worked-480),normal=worked-over;
   w.textContent=_fmtHM(worked);n.textContent=_fmtHM(normal);o.textContent=over?'+'+_fmtHM(over):'0u 00m';
 }
@@ -373,7 +379,7 @@ function submitUren(btn){
   if(_urenMins(s)===null||_urenMins(e)===null||_urenMins(e)<=_urenMins(s)){err.textContent='Vul een geldige start- en eindtijd in (eind na start).';err.style.display='block';return;}
   err.style.display='none';btn.disabled=true;
   oiPost(U_UREN,{start:s,end:e,note:note}).then(function(res){
-    if(res.queued){toast('Bewaard — wordt verstuurd zodra je online bent');btn.disabled=false;}
+    if(res.queued){toast('Bewaard - wordt verstuurd zodra je online bent');btn.disabled=false;}
     else if(res.ok){toast('Uren ingediend');location.reload();}
     else{btn.disabled=false;err.textContent=res.error||'Mislukt';err.style.display='block';}});
 }
@@ -381,14 +387,15 @@ function toast(msg){var t=document.getElementById('oiToast');if(!t){t=document.c
   t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
 function startStop(pid){
   oiPost(U_START.slice(0,-1)+pid,{}).then(function(res){
-    if(res.queued){toast('Bewaard — wordt verstuurd zodra je online bent');}else{location.reload();}});
+    if(res.queued){toast('Bewaard - wordt verstuurd zodra je online bent');}else{location.reload();}});
 }
+function onderwegNaar(pid){ oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).catch(function(){}); startStop(pid); }
 function announce(pid, btn){
   btn.disabled=true;
   oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).then(function(res){
     if(res.ok!==false){btn.classList.add('annsent');btn.textContent='✓ Klant geïnformeerd';
-      toast(res.queued?'Bewaard — klant wordt geïnformeerd zodra je online bent':(res.emailed?'Klant is per e-mail geïnformeerd':'Klant geïnformeerd (staat in de planning)'));}
-    else{btn.disabled=false;toast('Mislukt — probeer opnieuw');}});
+      toast(res.queued?'Bewaard - klant wordt geïnformeerd zodra je online bent':(res.emailed?'Klant is per e-mail geïnformeerd':'Klant geïnformeerd (staat in de planning)'));}
+    else{btn.disabled=false;toast('Mislukt - probeer opnieuw');}});
 }
 var sigCtx=null, sigDrawn=false;
 function openComplete(pid, client){
@@ -407,19 +414,19 @@ function submitComplete(){
   var err=document.getElementById('cmErr');
   if(oc==='succesvol'&&(!receiver||!sig)){err.textContent='Vul de naam in én laat de ontvanger tekenen.';err.style.display='block';return;}
   oiPost(U_COMPLETE.slice(0,-1)+pid,{receiver:receiver,signature:sig,outcome:oc,sub_outcome:sub}).then(function(res){
-    if(res.queued){document.getElementById('completeModal').style.display='none';toast('Levering bewaard — wordt verstuurd zodra je online bent');}
+    if(res.queued){document.getElementById('completeModal').style.display='none';toast('Levering bewaard - wordt verstuurd zodra je online bent');}
     else if(res.ok){location.reload();}
     else{err.textContent=res.error||'Mislukt';err.style.display='block';}});
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
 function submitLeave(btn){var obj={};new FormData(document.getElementById('leaveForm')).forEach(function(v,k){obj[k]=v;});btn.disabled=true;
   oiPost(U_LEAVE,obj).then(function(res){
-    if(res.queued){document.getElementById('leaveModal').style.display='none';alert('Aanvraag bewaard — wordt verstuurd zodra je online bent.');}
+    if(res.queued){document.getElementById('leaveModal').style.display='none';alert('Aanvraag bewaard - wordt verstuurd zodra je online bent.');}
     else if(res.ok){alert('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.');document.getElementById('leaveModal').style.display='none';}
     else{btn.disabled=false;alert(res.error||'Mislukt');}});}
 function confirmCloseRoute(){document.getElementById('closeConfirm').style.display='flex';}
 function doCloseRoute(){oiPost(U_CLOSE,{}).then(function(res){
-  if(res.queued){document.getElementById('closeConfirm').style.display='none';toast('Route-afsluiting bewaard — wordt verstuurd zodra je online bent');}
+  if(res.queued){document.getElementById('closeConfirm').style.display='none';toast('Route-afsluiting bewaard - wordt verstuurd zodra je online bent');}
   else{location.reload();}});}
 function openBusIssue(){document.getElementById('biMsg').value='';document.getElementById('biErr').style.display='none';document.getElementById('busIssueModal').style.display='flex';}
 function submitBusIssue(btn){var msg=document.getElementById('biMsg').value.trim();var err=document.getElementById('biErr');
@@ -427,7 +434,7 @@ function submitBusIssue(btn){var msg=document.getElementById('biMsg').value.trim
   btn.disabled=true;
   oiPost(U_BUSISSUE,{message:msg}).then(function(res){btn.disabled=false;
     if(res.ok!==false){document.getElementById('busIssueModal').style.display='none';
-      alert(res.queued?'Bewaard — je melding wordt verstuurd zodra je online bent.':(res.emailed?'Bedankt! Je melding is naar kantoor gemaild en staat in de planning.':'Bedankt! Je melding staat in de planning op kantoor.'));}
+      alert(res.queued?'Bewaard - je melding wordt verstuurd zodra je online bent.':(res.emailed?'Bedankt! Je melding is naar kantoor gemaild en staat in de planning.':'Bedankt! Je melding staat in de planning op kantoor.'));}
     else{err.textContent=res.error||'Mislukt';err.style.display='block';}});}
 var gpsWatch=null;
 function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getElementById('gpsState');
