@@ -3,104 +3,126 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#0f3d3e">
+<meta name="theme-color" content="#f3efe8">
 <link rel="manifest" href="{{ url_for('planning.manifest') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='oi-icon.svg', v='2') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png', v='2') }}">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="OfficeRoute">
 <title>OfficeRoute - Inloggen</title>
 <style>
-  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url("{{ url_for('static', filename='fonts/jost-latin.woff2') }}") format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Jost';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url("{{ url_for('static', filename='fonts/jost-latin-ext.woff2') }}") format('woff2');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  :root{--teal:#0f3d3e;--teal2:#15595a;--gold:#b88a44;--gold2:#cda35a;--bg:#f3efe8;--panel:#fff;--ink:#16302d;--muted:#7c8a85;--line:#e6ebe4}
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Jost',Arial,sans-serif;background:linear-gradient(160deg,#0f3d3e,#15595a 60%,#0c2f30);color:#fff;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:flex-start;padding:calc(env(safe-area-inset-top) + 46px) 24px 24px;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
-  /* subtiel honingraat-patroon dat naar onder vervaagt */
-  .bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
-  .glow{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;
-        background:radial-gradient(circle,rgba(205,163,90,.15),transparent 70%);z-index:0;pointer-events:none}
-  .wrap{position:relative;z-index:1;width:100%;max-width:380px;margin:0 auto}
-  .logo{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:26px}
-  .logo .mark{flex-shrink:0}
-  .logo .wm{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:18px}
-  .logo small{display:block;font-size:10px;letter-spacing:.08em;color:#9fc2b9;text-transform:none}
-  h1{font-size:22px;margin:0 0 4px}
-  p.sub{color:#cfe1da;font-size:14px;margin:10px 0 20px}
-  label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px;color:#eaf3ee}
-  input{width:100%;padding:14px;border:0;border-radius:12px;font:inherit;font-size:16px;background:rgba(255,255,255,.95);color:#16302d}
-  .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:15px;background:linear-gradient(135deg,#b88a44,#cda35a);color:#1c1a10;font:inherit;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 10px 22px rgba(184,138,68,.34)}
-  .err{background:rgba(192,83,63,.25);border:1px solid rgba(255,255,255,.25);border-radius:11px;padding:11px 14px;font-size:14px;margin-bottom:14px}
-  .demo{margin-top:22px;background:rgba(255,255,255,.1);border-radius:13px;padding:14px;font-size:13px;color:#eaf3ee}
-  .demo code{background:rgba(0,0,0,.2);border-radius:6px;padding:2px 6px}
-  .back{display:inline-block;margin-top:14px;color:#9fc2b9;font-size:13px}
-  .foot{position:relative;z-index:1;width:100%;max-width:380px;margin:auto auto 0;padding-top:20px;text-align:center}
-  .foot .gpsline{display:flex;gap:7px;justify-content:center;align-items:center;font-size:11px;color:#a9c9bf;line-height:1.45;max-width:300px;margin:0 auto}
-  .foot .gpsline svg{width:14px;height:14px;stroke:#8fb3aa;fill:none;stroke-width:1.8;flex-shrink:0}
-  .foot .meta{font-size:11px;color:#6f978c;letter-spacing:.04em;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+  body{margin:0;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+    padding:calc(env(safe-area-inset-top) + 28px) 18px calc(env(safe-area-inset-bottom) + 28px);
+    font-family:'Jost',system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+    background:var(--bg);position:relative;overflow:hidden;perspective:1100px}
+  .hex{position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='45.9' height='40.5' viewBox='0 0 34 30'%3E%3Cg fill='none' stroke='%230f3d3e' stroke-opacity='0.2' stroke-width='0.7'%3E%3Cpath d='M17 0 L25.5 5 L25.5 15 L17 20 L8.5 15 L8.5 5 Z'/%3E%3Cpath d='M0 15 L8.5 20 L8.5 30 L0 35 M34 15 L25.5 20 L25.5 30 L34 35'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat:repeat;
+    -webkit-mask:radial-gradient(150% 130% at 100% 0%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.08) 30%,transparent 64%);
+    mask:radial-gradient(150% 130% at 100% 0%,rgba(0,0,0,.35) 0%,rgba(0,0,0,.08) 30%,transparent 64%)}
+  .glow{position:absolute;width:560px;height:560px;border-radius:50%;pointer-events:none;left:50%;top:46%;
+    transform:translate(calc(-50% + var(--gx,0px)),calc(-50% + var(--gy,0px)));transition:transform .3s ease;
+    background:radial-gradient(circle,rgba(205,163,90,.20),rgba(205,163,90,.05) 42%,transparent 66%);filter:blur(6px)}
+  .stage{position:relative;z-index:1;transform-style:preserve-3d;transition:transform .25s ease-out}
+  .card{width:360px;max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:40px 34px 30px;position:relative;
+    box-shadow:0 2px 6px rgba(15,61,62,.05),0 26px 60px rgba(15,61,62,.12);text-align:center;
+    opacity:0;transform:translateY(24px) scale(.96);animation:in .9s cubic-bezier(.34,1.5,.44,1) .1s forwards}
+  @keyframes in{to{opacity:1;transform:none}}
+  .wm{font-size:38px;font-weight:700;letter-spacing:-.02em;color:var(--teal);margin:0;line-height:1;transform:translateZ(46px)}
+  .wm b{color:var(--gold)}
+  .appsub{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:9px 0 22px;transform:translateZ(34px)}
+  h1{font-size:23px;margin:0 0 4px;letter-spacing:-.015em;color:var(--teal);transform:translateZ(28px)}
+  .s{color:var(--muted);font-size:13.5px;margin:0 0 24px;transform:translateZ(20px)}
+  label{display:block;text-align:left;font-size:12.5px;font-weight:600;color:var(--ink);margin:0 0 6px}
+  .field{margin-bottom:15px;transform:translateZ(14px)}
+  .fld{width:100%;padding:14px 15px;border:1px solid var(--line);border-radius:12px;font:inherit;font-size:16px;color:var(--ink);
+    background:#fbfaf7;outline:none;transition:border-color .3s,box-shadow .3s,background .3s}
+  .fld::placeholder{color:#b7c2bc}
+  .fld:focus{border-color:var(--teal2);background:#fff;box-shadow:0 0 0 4px rgba(21,89,90,.12)}
+  .code{text-align:center;letter-spacing:10px;font-size:22px;font-weight:700}
+  .btn{width:100%;margin-top:6px;border:0;border-radius:12px;padding:15px;background:var(--teal);color:#fff;font:inherit;font-weight:600;font-size:15px;cursor:pointer;
+    position:relative;overflow:hidden;transform:translateZ(38px);box-shadow:0 12px 26px rgba(15,61,62,.2);transition:transform .2s cubic-bezier(.34,1.5,.44,1),box-shadow .2s}
+  .btn:hover{transform:translateZ(38px) translateY(-2px);box-shadow:0 16px 32px rgba(15,61,62,.26)}
+  .btn::after{content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;background:linear-gradient(100deg,transparent,rgba(205,163,90,.55),transparent);transition:left .6s}
+  .btn:hover::after{left:130%}
+  .err{background:#fbe6e2;color:#b23b28;border-radius:12px;padding:10px 13px;font-size:13.5px;margin-bottom:14px;text-align:left;transform:translateZ(20px)}
+  .demo{background:#f7efe0;border:1px solid #e3c98f;color:#6b4e15;border-radius:12px;padding:10px 13px;font-size:13px;margin-bottom:14px;text-align:left;transform:translateZ(20px)}
+  .demo b{font-size:18px;letter-spacing:3px}
+  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);line-height:1.7;transform:translateZ(12px)}
+  .foot .lock{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+  .foot .lock svg{width:12px;height:12px;stroke:var(--muted);fill:none;stroke-width:1.8}
+  .foot .gps{display:inline-block;max-width:280px;margin:8px auto 2px;color:var(--muted);font-size:10.5px;line-height:1.5}
+  a.link{color:var(--muted);font-size:12px;text-decoration:none}
+  a.link:hover{color:var(--teal)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;opacity:1!important}.card{transform:none}.stage,.glow{transition:none}}
 </style>
 </head>
 <body>
-<svg class="bg" viewBox="0 0 390 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <defs>
-    <pattern id="hx" width="34" height="30" patternUnits="userSpaceOnUse" patternTransform="scale(1.25)">
-      <g fill="none" stroke="#cda35a" stroke-width="1">
-        <path d="M17 0 L25.5 5 L25.5 15 L17 20 L8.5 15 L8.5 5 Z"/>
-        <path d="M0 15 L8.5 20 L8.5 30 L0 35 M34 15 L25.5 20 L25.5 30 L34 35"/>
-      </g>
-    </pattern>
-    <linearGradient id="hxfade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
-      <stop offset=".42" stop-color="#fff" stop-opacity=".2"/>
-      <stop offset=".72" stop-color="#fff" stop-opacity=".05"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <mask id="hxmask"><rect width="390" height="800" fill="url(#hxfade)"/></mask>
-  </defs>
-  <rect width="390" height="800" fill="url(#hx)" mask="url(#hxmask)"/>
-</svg>
-<div class="glow"></div>
+  <div class="hex"></div>
+  <div class="glow" id="glow"></div>
+  <div class="stage" id="stage">
+    <div class="card">
+      <div class="wm">Office<b>Route</b></div>
+      <div class="appsub">Monteur-app</div>
 
-<div class="wrap">
-  <div class="logo">
-    <svg class="mark" width="46" height="46" viewBox="0 0 512 512" aria-hidden="true">
-      <circle cx="256" cy="176" r="92" fill="none" stroke="#cda35a" stroke-width="36"/>
-      <path d="M158 434 L158 298 L256 384 L354 298 L354 434" fill="none" stroke="#cda35a" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div><span class="wm">OfficeRoute</span><small>Monteur-app</small></div>
+      {% if show_2fa %}
+        <h1>Verificatie</h1>
+        {% if code_sent %}<p class="s">We hebben een code gemaild naar <b>{{ twofa_email }}</b>.</p>
+        {% else %}<p class="s">Voer de code in voor <b>{{ twofa_email }}</b>.</p>{% endif %}
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        {% if demo_code %}<div class="demo">Code (test): <b>{{ demo_code }}</b></div>{% endif %}
+        <form method="post" action="{{ url_for('planning.login') }}">
+          <div class="field">
+            <label>Verificatiecode</label>
+            <input class="fld code" name="twofa_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="______" autofocus required>
+          </div>
+          <button class="btn" type="submit">Bevestigen</button>
+        </form>
+        <div class="foot"><a class="link" href="{{ url_for('planning.login') }}">&larr; Opnieuw beginnen</a></div>
+      {% else %}
+        <h1>Welkom terug</h1>
+        <p class="s">Log in om verder te gaan.</p>
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        <form method="post" action="{{ url_for('planning.login') }}">
+          <div class="field">
+            <label>E-mailadres</label>
+            <input class="fld" type="email" name="email" placeholder="voorbeeld@voorbeeld.nl" autocomplete="username" autofocus required>
+          </div>
+          <div class="field">
+            <label>Wachtwoord</label>
+            <input class="fld" type="password" name="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" required>
+          </div>
+          <button class="btn" type="submit">Inloggen</button>
+        </form>
+        <div class="foot">
+          <span class="lock"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> Beveiligd met tweestapsverificatie</span>
+          <span class="gps">Door in te loggen ga je akkoord met gebruik van je locatie (GPS) tijdens je route.</span>
+          versie {{ p_app_version if p_app_version and p_app_version != 'dev' else '2026.07' }}
+        </div>
+      {% endif %}
+    </div>
   </div>
-
-  {% if show_2fa %}
-  <h1>Verificatie</h1>
-  {% if code_sent %}<p class="sub">We hebben een 6-cijferige code gemaild naar <b>{{ twofa_email }}</b>. Voer 'm hieronder in.</p>
-  {% else %}<p class="sub">Voer de 6-cijferige code in voor <b>{{ twofa_email }}</b>.</p>{% endif %}
-  {% if error %}<div class="err">{{ error }}</div>{% endif %}
-  <form method="post">
-    <label>Code</label>
-    <input type="text" name="twofa_code" inputmode="numeric" maxlength="6" placeholder="______" autofocus required style="letter-spacing:.4em;text-align:center;font-size:22px">
-    <button class="btn" type="submit">Inloggen</button>
-  </form>
-  {% if demo_code %}<div class="demo"><b>Demo:</b> je code is <code style="font-size:15px">{{ demo_code }}</code><div style="margin-top:5px;color:#9fc2b9">Live wordt deze per sms/e-mail of authenticator verstuurd.</div></div>{% endif %}
-  <a class="back" href="{{ url_for('planning.login') }}">← Opnieuw beginnen</a>
-  {% else %}
-  <h1>Welkom</h1>
-  <p class="sub">Log in om je route van vandaag te zien.</p>
-  {% if error %}<div class="err">{{ error }}</div>{% endif %}
-  <form method="post">
-    <label>E-mailadres</label>
-    <input type="email" name="email" placeholder="jij@office-interior.nl" autofocus required>
-    <label>Wachtwoord</label>
-    <input type="password" name="password" placeholder="••••••••" required>
-    <button class="btn" type="submit">Volgende →</button>
-  </form>
-  {% endif %}
-</div>
-
-<div class="foot">
-  <div class="gpsline">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-    <span>Door in te loggen ga je akkoord met het gebruik van je locatie (GPS) tijdens je route.</span>
-  </div>
-  <div class="meta">© OfficeRoute 2026 · versie 2026.07</div>
-</div>
+<script>
+(function(){
+  var b=document.body,s=document.getElementById('stage'),gw=document.getElementById('glow');
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  b.addEventListener('mousemove',function(e){
+    var px=e.clientX/innerWidth-.5,py=e.clientY/innerHeight-.5;
+    s.style.transform='rotateY('+px*9+'deg) rotateX('+(-py*9)+'deg)';
+    gw.style.setProperty('--gx',(-px*40)+'px');gw.style.setProperty('--gy',(-py*40)+'px');
+  });
+  b.addEventListener('mouseleave',function(){s.style.transform='';gw.style.setProperty('--gx','0px');gw.style.setProperty('--gy','0px');});
+})();
+</script>
 </body>
 </html>
