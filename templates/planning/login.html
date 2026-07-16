@@ -79,14 +79,19 @@
         <p class="s">Koppel eenmalig je authenticator-app en voer de code in. Daarna log je in met een code uit die app.</p>
         {% if error %}<div class="err">{{ error }}</div>{% endif %}
         <div class="demo" style="text-align:left;font-size:12px;line-height:1.6">
-          <b style="font-size:13px">Scan deze QR met je authenticator-app</b>
-          <div style="margin:3px 0 0">Open Google of Microsoft Authenticator, kies "+" en dan "QR-code scannen".</div>
-          {% if qr_svg %}<div style="text-align:center;margin:12px 0">
+          <b style="font-size:13px">Toevoegen op dit toestel</b>
+          <div style="margin:3px 0 10px">Tik op de knop om de code direct op te slaan in je authenticator- of wachtwoord-app.</div>
+          <a href="{{ otp_uri }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--teal);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px;border-radius:12px">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            Toevoegen op dit toestel
+          </a>
+          <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;margin:14px 0 10px"><span style="flex:1;height:1px;background:var(--line)"></span>of scan vanaf een ander toestel<span style="flex:1;height:1px;background:var(--line)"></span></div>
+          {% if qr_svg %}<div style="text-align:center;margin:0">
             <span style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:1px solid var(--line)">{{ qr_svg|safe }}</span>
           </div>{% endif %}
-          <details style="margin-top:6px">
-            <summary style="cursor:pointer;color:var(--teal);font-weight:600">Kan je niet scannen? Handmatig invoeren</summary>
-            <div style="margin-top:8px">Op je telefoon: <a href="{{ otp_uri }}" style="color:var(--teal);font-weight:700">tik hier om toe te voegen</a>. Of kies "setup key" en typ deze sleutel over:</div>
+          <details style="margin-top:12px">
+            <summary style="cursor:pointer;color:var(--teal);font-weight:600">Handmatig invoeren</summary>
+            <div style="margin-top:8px">Kies in de app "setup key" en typ deze sleutel over:</div>
             <b style="display:block;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:1px;line-height:1.6;word-break:break-all;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--teal)">{% for i in range(0, totp_secret|length, 4) %}{{ totp_secret[i:i+4] }} {% endfor %}</b>
             <div style="margin-top:6px;color:var(--muted);font-size:11px">De sleutel bevat alleen letters en de cijfers 2 t/m 7. Een rond teken is dus altijd de letter O (nooit een nul).</div>
           </details>
