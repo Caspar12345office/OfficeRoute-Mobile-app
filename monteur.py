@@ -11,7 +11,7 @@ DB: PostgreSQL als DATABASE_URL is gezet (productie), anders lokaal SQLite (ontw
 from flask import (Blueprint, render_template, request, redirect, url_for, session,
                    flash, jsonify, Response, abort, send_from_directory, g)
 from werkzeug.security import check_password_hash, generate_password_hash
-import os, json, time, sqlite3, secrets, smtplib, threading, math
+import os, json, time, sqlite3, secrets, smtplib, threading, math, base64, hmac, hashlib, urllib.parse
 
 # Licht/snel wachtwoord-hashen (Werkzeug-default 'scrypt' is traag op kleine servers).
 _PW_METHOD = "pbkdf2:sha256:30000"
@@ -338,7 +338,8 @@ def init_db():
                   "ALTER TABLE planning ADD COLUMN aangekomen_at TEXT",
                   "ALTER TABLE planning ADD COLUMN afgerond_at TEXT",
                   "ALTER TABLE users ADD COLUMN login_fails INTEGER DEFAULT 0",
-                  "ALTER TABLE users ADD COLUMN locked INTEGER DEFAULT 0"):
+                  "ALTER TABLE users ADD COLUMN locked INTEGER DEFAULT 0",
+                  "ALTER TABLE users ADD COLUMN totp_secret TEXT"):
         try:
             conn.execute(_stmt); conn.commit()
         except Exception:
@@ -615,9 +616,37 @@ def home():
     return redirect(url_for("planning.monteur_app") if current_user() else url_for("planning.login"))
 
 
+def _totp_secret_new():
+    return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+
+def _totp_at(secret, ts):
+    try:
+        key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+    except Exception:
+        return None
+    ctr = int(ts // 30)
+    h = hmac.new(key, ctr.to_bytes(8, "big"), hashlib.sha1).digest()
+    o = h[-1] & 0x0f
+    return "%06d" % ((int.from_bytes(h[o:o + 4], "big") & 0x7fffffff) % 1000000)
+
+
+def _totp_verify(secret, code):
+    code = (code or "").strip().replace(" ", "")
+    if not (secret and code.isdigit() and len(code) == 6):
+        return False
+    now = time.time()
+    return any(_totp_at(secret, now + w * 30) == code for w in (-1, 0, 1))
+
+
+def _totp_uri(secret, email):
+    label = urllib.parse.quote("OfficeRoute:" + (email or ""))
+    return "otpauth://totp/%s?secret=%s&issuer=OfficeRoute&digits=6&period=30" % (label, secret)
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    error = ""; show_2fa = False; demo_code = None; twofa_email = None; code_sent = False
+    error = ""; show_2fa = False; enrolling = False; totp_secret = None; otp_uri = None; twofa_email = None
     if request.method == "POST":
         if request.form.get("twofa_code") is not None:
             tf = session.get("twofa") or {}
@@ -625,16 +654,21 @@ def login():
             if not tf:
                 error = "Sessie verlopen. Log opnieuw in."
             elif time.time() > tf.get("exp", 0):
-                session.pop("twofa", None); error = "Code verlopen."
-            elif code == tf.get("code"):
+                session.pop("twofa", None); error = "Sessie verlopen."
+            elif _totp_verify(tf.get("secret"), code):
+                if tf.get("enroll"):
+                    try:
+                        cu = db(); cu.execute("UPDATE users SET totp_secret=? WHERE id=?", (tf["secret"], tf["uid"])); cu.commit(); cu.close()
+                    except Exception:
+                        pass
                 session["p_user_id"] = tf["uid"]; session.pop("twofa", None)
                 return redirect(url_for("planning.monteur_app"))
             else:
-                error = "Onjuiste code."; show_2fa = True; twofa_email = tf.get("email")
-                if tf.get("sent"):
-                    code_sent = True
-                else:
-                    demo_code = tf.get("code")
+                error = "Onjuiste code. Controleer je authenticator-app."
+            if error and tf:
+                show_2fa = True; twofa_email = tf.get("email")
+                if tf.get("enroll"):
+                    enrolling = True; totp_secret = tf.get("secret"); otp_uri = _totp_uri(tf.get("secret"), tf.get("email"))
         else:
             email = (request.form.get("email") or "").strip().lower()
             pw = request.form.get("password") or ""
@@ -660,18 +694,13 @@ def login():
                         cu.commit(); cu.close()
                     except Exception:
                         pass
-                code = "%06d" % secrets.randbelow(1000000)
+                enrolled = bool(((u["totp_secret"] if "totp_secret" in _keys else None) or "").strip())
+                secret = u["totp_secret"] if enrolled else _totp_secret_new()
                 show_2fa = True; twofa_email = u["email"]
-                # 2FA-mail op de ACHTERGROND: login wacht niet op het trage Resend-verzoek.
-                if _mail_live():
-                    code_sent = True
-                    threading.Thread(target=_send_2fa_email, args=(u["email"], code, u["name"]),
-                                     daemon=True).start()
-                # Code ALTIJD ook op het scherm tonen als terugval - zo lukt inloggen
-                # ook als de e-mail (nog) niet aankomt. Verbergen zodra mail bewezen werkt.
-                demo_code = code
-                session["twofa"] = {"uid": u["id"], "code": code, "exp": time.time() + 300,
-                                    "email": u["email"], "sent": code_sent}
+                if not enrolled:
+                    enrolling = True; totp_secret = secret; otp_uri = _totp_uri(secret, u["email"])
+                session["twofa"] = {"uid": u["id"], "secret": secret, "enroll": (not enrolled),
+                                    "exp": time.time() + 600, "email": u["email"]}
             elif u:
                 # Bestaand account, fout wachtwoord: teller ophogen en na 5 pogingen blokkeren.
                 try:
@@ -691,7 +720,8 @@ def login():
             else:
                 error = "Onjuiste inloggegevens."
     return render_template("planning/login.html", error=error, show_2fa=show_2fa,
-                           demo_code=demo_code, twofa_email=twofa_email, code_sent=code_sent)
+                           enrolling=enrolling, totp_secret=totp_secret, otp_uri=otp_uri,
+                           twofa_email=twofa_email)
 
 
 @bp.route("/logout")

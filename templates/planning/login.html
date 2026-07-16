@@ -74,11 +74,27 @@
       <div class="wm">Monteur<b>-app</b></div>
 
       {% if show_2fa %}
-        <h1>Verificatie</h1>
-        {% if code_sent %}<p class="s">We hebben een code gemaild naar <b>{{ twofa_email }}</b>.</p>
-        {% else %}<p class="s">Voer de code in voor <b>{{ twofa_email }}</b>.</p>{% endif %}
+        {% if enrolling %}
+        <h1>Beveiliging instellen</h1>
+        <p class="s">Koppel eenmalig je authenticator-app en voer de code in. Daarna log je in met een code uit die app.</p>
         {% if error %}<div class="err">{{ error }}</div>{% endif %}
-        {% if demo_code %}<div class="demo">Code (test): <b>{{ demo_code }}</b></div>{% endif %}
+        <div class="demo" style="text-align:left;font-size:12px;line-height:1.6">
+          Op je telefoon: <a href="{{ otp_uri }}" style="color:var(--teal);font-weight:700">tik hier om toe te voegen</a>.<br>
+          Of kies in de app "handmatig / setup key" en voer in:<br>
+          <b style="display:block;text-align:center;font-size:14px;letter-spacing:2px;margin-top:6px">{{ totp_secret }}</b>
+        </div>
+        <form method="post" action="{{ url_for('planning.login') }}">
+          <div class="field">
+            <label>Code uit je app</label>
+            <input class="fld code" name="twofa_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="______" autofocus required>
+          </div>
+          <button class="btn" type="submit">Koppelen &amp; inloggen</button>
+        </form>
+        <div class="foot"><a class="link" href="{{ url_for('planning.login') }}">&larr; Opnieuw beginnen</a></div>
+        {% else %}
+        <h1>Verificatie</h1>
+        <p class="s">Voer de code uit je authenticator-app in.</p>
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
         <form method="post" action="{{ url_for('planning.login') }}">
           <div class="field">
             <label>Verificatiecode</label>
@@ -87,6 +103,7 @@
           <button class="btn" type="submit">Bevestigen</button>
         </form>
         <div class="foot"><a class="link" href="{{ url_for('planning.login') }}">&larr; Opnieuw beginnen</a></div>
+        {% endif %}
       {% else %}
         <h1>Welkom terug</h1>
         <p class="s">Log in om verder te gaan.</p>
