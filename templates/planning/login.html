@@ -79,9 +79,17 @@
         <p class="s">Koppel eenmalig je authenticator-app en voer de code in. Daarna log je in met een code uit die app.</p>
         {% if error %}<div class="err">{{ error }}</div>{% endif %}
         <div class="demo" style="text-align:left;font-size:12px;line-height:1.6">
-          Op je telefoon: <a href="{{ otp_uri }}" style="color:var(--teal);font-weight:700">tik hier om toe te voegen</a>.<br>
-          Of kies in de app "handmatig / setup key" en voer in:<br>
-          <b style="display:block;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:1px;line-height:1.6;word-break:break-all;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--teal)">{% for i in range(0, totp_secret|length, 4) %}{{ totp_secret[i:i+4] }} {% endfor %}</b>
+          <b style="font-size:13px">Scan deze QR met je authenticator-app</b>
+          <div style="margin:3px 0 0">Open Google of Microsoft Authenticator, kies "+" en dan "QR-code scannen".</div>
+          {% if qr_svg %}<div style="text-align:center;margin:12px 0">
+            <span style="display:inline-block;background:#fff;padding:10px;border-radius:12px;border:1px solid var(--line)">{{ qr_svg|safe }}</span>
+          </div>{% endif %}
+          <details style="margin-top:6px">
+            <summary style="cursor:pointer;color:var(--teal);font-weight:600">Kan je niet scannen? Handmatig invoeren</summary>
+            <div style="margin-top:8px">Op je telefoon: <a href="{{ otp_uri }}" style="color:var(--teal);font-weight:700">tik hier om toe te voegen</a>. Of kies "setup key" en typ deze sleutel over:</div>
+            <b style="display:block;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:1px;line-height:1.6;word-break:break-all;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--teal)">{% for i in range(0, totp_secret|length, 4) %}{{ totp_secret[i:i+4] }} {% endfor %}</b>
+            <div style="margin-top:6px;color:var(--muted);font-size:11px">De sleutel bevat alleen letters en de cijfers 2 t/m 7. Een rond teken is dus altijd de letter O (nooit een nul).</div>
+          </details>
         </div>
         <form method="post" action="{{ url_for('planning.login') }}">
           <div class="field">

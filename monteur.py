@@ -636,12 +636,27 @@ def _totp_verify(secret, code):
     if not (secret and code.isdigit() and len(code) == 6):
         return False
     now = time.time()
-    return any(_totp_at(secret, now + w * 30) == code for w in (-1, 0, 1))
+    # +/- 2 stappen (150 s) tolerantie: vergevingsgezind voor kleine klokverschillen.
+    return any(_totp_at(secret, now + w * 30) == code for w in (-2, -1, 0, 1, 2))
 
 
 def _totp_uri(secret, email):
     label = urllib.parse.quote("OfficeRoute:" + (email or ""))
     return "otpauth://totp/%s?secret=%s&issuer=OfficeRoute&digits=6&period=30" % (label, secret)
+
+def _totp_qr_svg(uri):
+    """Inline SVG-QR van de otpauth-URI, zodat je kunt scannen i.p.v. overtypen."""
+    if not uri:
+        return ""
+    try:
+        import io
+        import segno
+        buff = io.BytesIO()
+        segno.make(uri, error="m").save(buff, kind="svg", scale=4, border=2,
+                                        dark="#0f3d3e", xmldecl=False, svgns=True)
+        return buff.getvalue().decode("ascii")
+    except Exception:
+        return ""
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -721,6 +736,7 @@ def login():
                 error = "Onjuiste inloggegevens."
     return render_template("planning/login.html", error=error, show_2fa=show_2fa,
                            enrolling=enrolling, totp_secret=totp_secret, otp_uri=otp_uri,
+                           qr_svg=_totp_qr_svg(otp_uri),
                            twofa_email=twofa_email)
 
 
