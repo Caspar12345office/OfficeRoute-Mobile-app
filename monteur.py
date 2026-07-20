@@ -927,7 +927,7 @@ def monteur_announce(pid):
         conn.close()
         return jsonify(ok=False), 404
     eta = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
-    track_url = "https://planning-o-i.onrender.com/track/%s" % p["order_number"]
+    track_url = "%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i.onrender.com"), p["order_number"])
     subject = "Onze monteur is er bijna"
     body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn. "
             "U kunt hem live volgen via de link in deze e-mail.\n\nMet vriendelijke groet,\nOffice-Interior"
