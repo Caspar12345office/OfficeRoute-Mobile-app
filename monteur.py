@@ -113,11 +113,24 @@ def _get_pg_pool():
     if _PG_POOL is not None or _PG_POOL_TRIED:
         return _PG_POOL
     _PG_POOL_TRIED = True
+    p = None
     try:
         from psycopg_pool import ConnectionPool
-        _PG_POOL = ConnectionPool(_PG_URL, min_size=1, max_size=3,
-                                  kwargs={"autocommit": True}, timeout=10, open=True)
+        # open=False + valideren met korte timeout: check NU of de pool echt verbindt.
+        # Zo niet -> pool weggooien en directe verbindingen gebruiken. Voorkomt dat elke
+        # request de volle pool-timeout afwacht op een kapotte pool (verse Render-build).
+        p = ConnectionPool(_PG_URL, min_size=1, max_size=3,
+                           kwargs={"autocommit": True}, timeout=3, open=False)
+        p.open()
+        _c = p.getconn(timeout=3)
+        p.putconn(_c)
+        _PG_POOL = p
     except Exception:
+        try:
+            if p is not None:
+                p.close()
+        except Exception:
+            pass
         _PG_POOL = None
     return _PG_POOL
 
@@ -234,6 +247,12 @@ class _PgConn:
             try:
                 self._raw = self._pool.getconn()
             except Exception:
+                global _PG_POOL
+                try:
+                    self._pool.close()
+                except Exception:
+                    pass
+                _PG_POOL = None
                 self._pool = None
         if self._pool is None:
             import psycopg
