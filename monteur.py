@@ -358,7 +358,10 @@ def init_db():
                   "ALTER TABLE planning ADD COLUMN afgerond_at TEXT",
                   "ALTER TABLE users ADD COLUMN login_fails INTEGER DEFAULT 0",
                   "ALTER TABLE users ADD COLUMN locked INTEGER DEFAULT 0",
-                  "ALTER TABLE users ADD COLUMN totp_secret TEXT"):
+                  "ALTER TABLE users ADD COLUMN totp_secret TEXT",
+                  # De kantoorsoftware zet hem, maar de volg-link in de 'ik kom eraan'-mail
+                  # heeft hem nodig; zo werkt de monteur-app ook op een verse database.
+                  "ALTER TABLE orders ADD COLUMN track_token TEXT"):
         try:
             conn.execute(_stmt); conn.commit()
         except Exception:
@@ -938,7 +941,7 @@ def monteur_announce(pid):
     if not u or not has_perm("monteur_app"):
         return jsonify(ok=False), 403
     conn = db()
-    p = conn.execute("""SELECT p.id, o.client_id, o.email, o.order_number, c.name AS client
+    p = conn.execute("""SELECT p.id, o.client_id, o.email, o.order_number, o.track_token, c.name AS client
                         FROM planning p JOIN orders o ON o.id=p.order_id
                         LEFT JOIN clients c ON c.id=o.client_id
                         WHERE p.id=? AND p.monteur_id=?""", (pid, u["monteur_id"])).fetchone()
@@ -946,11 +949,16 @@ def monteur_announce(pid):
         conn.close()
         return jsonify(ok=False), 404
     eta = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
-    track_url = "%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i.onrender.com"), p["order_number"])
+    # De volgpagina werkt op het niet-raadbare track_token, niet op het ordernummer.
+    # Geen token (oudere order)? Dan liever geen knop dan een dode link.
+    token = (p["track_token"] or "").strip()
+    track_url = ("%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i.onrender.com"), token)
+                 if token else None)
     subject = "Onze monteur is er bijna"
-    body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn. "
-            "U kunt hem live volgen via de link in deze e-mail.\n\nMet vriendelijke groet,\nOffice-Interior"
-            % (p["client"] or "klant", u["name"], eta))
+    body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn.%s"
+            "\n\nMet vriendelijke groet,\nOffice-Interior"
+            % (p["client"] or "klant", u["name"], eta,
+               " U kunt hem live volgen via de link in deze e-mail." if track_url else ""))
     conn.execute("UPDATE planning SET arrival_mailed=1 WHERE id=?", (pid,))
     conn.execute("""INSERT INTO email_log(client_id,direction,subject,body,ts,has_attachment)
                     VALUES(?,?,?,?,?,0)""",
@@ -961,7 +969,7 @@ def monteur_announce(pid):
                         _paras("Beste %s," % (p["client"] or "klant"), _mailtxt("mailtxt_near_b")),
                         info=[("Monteur", u["name"]), ("Verwachte aankomst", "rond %s" % eta),
                               ("Ordernummer", "#%s" % p["order_number"])],
-                        button=("Volg live op de kaart", track_url))
+                        button=(("Volg live op de kaart", track_url) if track_url else None))
     emailed = _smtp_send([p["email"]], subject, body, html)
     return jsonify(ok=True, emailed=emailed)
 
