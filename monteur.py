@@ -952,7 +952,7 @@ def monteur_announce(pid):
     # De volgpagina werkt op het niet-raadbare track_token, niet op het ordernummer.
     # Geen token (oudere order)? Dan liever geen knop dan een dode link.
     token = (p["track_token"] or "").strip()
-    track_url = ("%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i.onrender.com"), token)
+    track_url = ("%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i-fra.onrender.com"), token)
                  if token else None)
     subject = "Onze monteur is er bijna"
     body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn.%s"
