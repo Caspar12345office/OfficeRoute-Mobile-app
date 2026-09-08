@@ -972,9 +972,13 @@ def monteur_announce(pid):
                  (p["client_id"], "out", subject, body, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()
+    # Bij deze mail is de monteur al onderweg, dus de volgkaart is open. De
+    # tweede knop blijft handig: de klant kan nog iets doorgeven.
     html = _mail_html(_mailtxt("mailtxt_near_h"), p["client"], _mailtxt("mailtxt_near_b"),
                       cells,
-                      button=(("Volg live op de kaart", track_url) if track_url else None))
+                      buttons=([("Volg live op de kaart", track_url),
+                                ("Bericht doorgeven", track_url + "#bericht")]
+                               if track_url else None))
     emailed = _smtp_send([p["email"]], subject, body, html)
     return jsonify(ok=True, emailed=emailed)
 
@@ -1221,6 +1225,7 @@ a { color:{{teal}}; text-decoration:none; }
   .copy { font-size:16px !important; }
   .meta-cell { display:block !important; width:100% !important; padding:0 0 18px 0 !important; }
   .meta-sep { display:none !important; }
+  .btn-cell { display:block !important; width:100% !important; padding:0 0 12px 0 !important; }
 }
 </style>
 </head>
@@ -1294,23 +1299,45 @@ def _mail_meta_row(cells):
     return out + '</tr></table>'
 
 
-def _mail_button_block(button):
-    """Gecentreerde teal knop. Geef '&' mee, niet '&amp;': hier wordt ge-escaped."""
-    if not button or not button[1]:
+def _mail_button_block(buttons):
+    """Eén of twee gecentreerde knoppen naast elkaar.
+
+    buttons = (tekst, url) of een lijst daarvan. Geef '&' mee, niet '&amp;':
+    hier wordt ge-escaped. Eerste knop gevuld, tweede wit met teal rand.
+    """
+    if not buttons:
         return ""
-    text, url = button
+    if isinstance(buttons, tuple):
+        buttons = [buttons]
+    items = [b for b in buttons if b and b[1]]
+    if not items:
+        return ""
     c = MAIL_COLORS
+    cells = ""
+    for i, (text, url) in enumerate(items):
+        fill = c["teal"] if i == 0 else "#ffffff"
+        ink = "#ffffff" if i == 0 else c["teal"]
+        pad = ' style="padding-left:10px;"' if i else ""
+        cells += ('<td class="btn-cell" valign="middle"' + pad + '>'
+                  '<table role="presentation" cellspacing="0" cellpadding="0" border="0"'
+                  ' align="center" style="margin:0 auto;"><tr>'
+                  '<td align="center" bgcolor="' + fill + '"'
+                  # zelfde ronding als de link erin, anders lichte hoekjes
+                  ' style="border-radius:10px; border:2px solid ' + c["teal"] + ';">'
+                  '<a href="' + _esc(url) + '" style="display:inline-block; padding:13px 26px;'
+                  ' background:' + fill + '; color:' + ink + ';'
+                  ' font-family:Arial,Helvetica,sans-serif; font-size:16px;'
+                  ' font-weight:700; text-decoration:none; border-radius:10px;">'
+                  + _esc(text) + '</a></td></tr></table></td>')
     return ('<table role="presentation" cellspacing="0" cellpadding="0" border="0"'
-            ' align="center" style="margin:34px auto 6px;"><tr>'
-            '<td align="center" bgcolor="' + c["teal"] + '" style="border-radius:12px;">'
-            '<a href="' + _esc(url) + '" style="display:inline-block; padding:15px 30px;'
-            ' color:#ffffff; font-family:Arial,Helvetica,sans-serif; font-size:16px;'
-            ' font-weight:700; text-decoration:none; border-radius:12px;">'
-            + _esc(text) + '</a></td></tr></table>')
+            ' align="center" style="margin:34px auto 6px;"><tr>' + cells + '</tr></table>')
 
 
-def _mail_html(heading, client, intro, cells, button=None):
-    """Bouw de klantmail uit het gedeelde sjabloon."""
+def _mail_html(heading, client, intro, cells, buttons=None):
+    """Bouw de klantmail uit het gedeelde sjabloon.
+
+    buttons = (tekst, url) of een lijst daarvan (maximaal twee naast elkaar).
+    """
     blocks = ""
     for para in [p for p in (intro or "").split("\n\n") if p.strip()]:
         blocks += ('<div class="copy" style="font-family:Arial,Helvetica,sans-serif;'
@@ -1323,7 +1350,7 @@ def _mail_html(heading, client, intro, cells, button=None):
         "greeting": "Beste %s," % _esc(client or "klant"),
         "intro_blocks": blocks,
         "meta_row": _mail_meta_row(cells),
-        "button_block": _mail_button_block(button),
+        "button_block": _mail_button_block(buttons),
         "logo_url": _mail_asset("logos/office-interior.png"),
         "icon_mail": _mail_asset("mail/icon-mail.png"),
         "contact_email": MAIL_CONTACT_EMAIL,
