@@ -962,21 +962,19 @@ def monteur_announce(pid):
     track_url = ("%s/track/%s" % (os.environ.get("KANTOOR_URL", "https://planning-o-i-fra.onrender.com"), token)
                  if token else None)
     subject = "Onze monteur is er bijna"
-    body = ("Beste %s,\n\nOnze monteur %s is er bijna en verwacht rond %s bij u te zijn.%s"
-            "\n\nMet vriendelijke groet,\nOffice-Interior"
-            % (p["client"] or "klant", u["name"], eta,
-               " U kunt hem live volgen via de link in deze e-mail." if track_url else ""))
+    cells = [("user", "Monteur", u["name"]),
+             ("clock", "Verwachte aankomst", "rond %s" % eta),
+             ("hash", "Ordernummer", "#%s" % p["order_number"])]
+    body = _mail_text(p["client"], _mailtxt("mailtxt_near_b"), cells, link=track_url)
     conn.execute("UPDATE planning SET arrival_mailed=1 WHERE id=?", (pid,))
     conn.execute("""INSERT INTO email_log(client_id,direction,subject,body,ts,has_attachment)
                     VALUES(?,?,?,?,?,0)""",
                  (p["client_id"], "out", subject, body, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()
-    html = _brand_email(_mailtxt("mailtxt_near_h"),
-                        _paras("Beste %s," % (p["client"] or "klant"), _mailtxt("mailtxt_near_b")),
-                        info=[("Monteur", u["name"]), ("Verwachte aankomst", "rond %s" % eta),
-                              ("Ordernummer", "#%s" % p["order_number"])],
-                        button=(("Volg live op de kaart", track_url) if track_url else None))
+    html = _mail_html(_mailtxt("mailtxt_near_h"), p["client"], _mailtxt("mailtxt_near_b"),
+                      cells,
+                      button=(("Volg live op de kaart", track_url) if track_url else None))
     emailed = _smtp_send([p["email"]], subject, body, html)
     return jsonify(ok=True, emailed=emailed)
 
@@ -1131,7 +1129,12 @@ def _paras(greet, bodytext):
 
 
 def _brand_email(heading, paragraphs, info=None, button=None, note=None):
-    """Nette HTML-klantmail in de OFFICE-INTERIOR-huisstijl (teal/goud)."""
+    """OUDE opmaak, NIET meer in gebruik in deze app.
+
+    De klantmail "onze monteur is er bijna" gebruikt sinds het gelijktrekken van
+    de vier klantmails _mail_html() hieronder. Deze functie blijft staan als
+    terugval en om te kunnen vergelijken; verwijderen kan als niets hem mist.
+    """
     paras = ""
     for p in (paragraphs or []):
         if p:
@@ -1174,6 +1177,172 @@ def _brand_email(heading, paragraphs, info=None, button=None, note=None):
             '<p style="margin:10px 0 0;padding-top:14px;border-top:1px solid #eef0ec;font-size:12px;color:#8a948f;'
             'line-height:1.6;">Vragen? Mail planning@office-interior.com of bel 085-0481444.</p></td></tr>'
             '</table></td></tr></table>')
+
+
+# --------------------------------------------------------------------------- #
+#  Sjabloon voor de klantmail "Onze monteur is er bijna"
+#
+#  Kopie van het sjabloon in de kantoor-app (planning_oi.py), zodat alle vier de
+#  automatische klantmails er hetzelfde uitzien. Elke app heeft zijn eigen
+#  verzendcode, dus deze kopie volgt hetzelfde patroon als _brand_email hierboven.
+#  Wijzig je het ontwerp in de kantoor-app, pas het hier dan ook aan.
+#
+#  De AFBEELDINGEN komen bewust van de kantoor-app (KANTOOR_URL), zodat er maar
+#  één set iconen bestaat en deze app geen eigen kopie hoeft bij te houden.
+#
+#  Vullen met .replace() op {{...}}, niet met % of .format(): de CSS zit vol
+#  accolades en procenttekens.
+# --------------------------------------------------------------------------- #
+MAIL_COLORS = {
+    "outer": "#f6f1e8", "card": "#ffffff", "card_edge": "#eee4d7",
+    "teal": "#053f44", "text": "#31464e", "label": "#6c7b80",
+    "rule": "#e1e5e3", "foot_rule": "#e8ebe9",
+}
+MAIL_ICONS = {"calendar": "icon-calendar.png", "clock": "icon-clock.png",
+              "hash": "icon-hash.png", "user": "icon-user.png"}
+MAIL_CONTACT_EMAIL = "planning@office-interior.com"
+
+MAIL_TEMPLATE = """<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>{{heading}}</title>
+<style>
+html, body { margin:0 !important; padding:0 !important; width:100% !important; }
+table, td { border-collapse:collapse !important; }
+img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; }
+a { color:{{teal}}; text-decoration:none; }
+@media screen and (max-width: 560px) {
+  .card { border-radius:0 !important; border-left:0 !important; border-right:0 !important; }
+  .body-pad { padding:30px 20px 24px 20px !important; }
+  .headline { font-size:28px !important; }
+  .copy { font-size:16px !important; }
+  .meta-cell { display:block !important; width:100% !important; padding:0 0 18px 0 !important; }
+  .meta-sep { display:none !important; }
+}
+</style>
+</head>
+<body style="margin:0; padding:0; background:{{outer}};">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; background:{{outer}};">
+<tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" class="card" bgcolor="{{card}}" style="width:100%; max-width:640px; background:{{card}}; border:1px solid {{card_edge}}; border-radius:22px;">
+<tr><td class="body-pad" style="padding:44px 42px 32px 42px;">
+
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr><td align="center" style="padding:8px 0 46px 0;">
+<img src="{{logo_url}}" width="360" alt="OFFICE-INTERIOR" style="width:100%; max-width:360px; height:auto;">
+</td></tr></table>
+
+<h1 class="headline" style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:34px; line-height:1.15; color:{{teal}}; font-weight:700; text-align:center;">{{heading}}</h1>
+
+<div class="copy" style="font-family:Arial,Helvetica,sans-serif; font-size:17px; line-height:1.55; color:{{text}}; text-align:center; padding-top:34px;">{{greeting}}</div>
+
+{{intro_blocks}}
+{{meta_row}}
+{{button_block}}
+
+</td></tr>
+
+<tr><td align="center" style="border-top:1px solid {{foot_rule}}; padding:24px 42px 30px 42px;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"><tr>
+<td width="62" style="width:62px; vertical-align:middle;">
+<img src="{{icon_mail}}" width="56" height="56" alt="" style="width:56px; height:56px;">
+</td>
+<td style="vertical-align:middle; text-align:left;">
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:{{label}};">Vragen over de levering?</div>
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:16px; color:{{teal}}; font-weight:700; margin-top:3px;">
+<a href="mailto:{{contact_email}}" style="color:{{teal}}; text-decoration:none;">{{contact_email}}</a></div>
+</td></tr></table>
+</td></tr>
+
+</table>
+</td></tr></table>
+</body>
+</html>"""
+
+
+def _mail_asset(path):
+    """Absolute URL naar een bestand in de static van de KANTOOR-app."""
+    base = os.environ.get("KANTOOR_URL", "https://planning-o-i-fra.onrender.com")
+    return "%s/static/%s" % (base.rstrip("/"), path.lstrip("/"))
+
+
+def _mail_meta_row(cells):
+    """Rij gegevens met iconen, gescheiden door verticale lijntjes (1 tot 3)."""
+    if not cells:
+        return ""
+    c = MAIL_COLORS
+    width = "%.4f" % (100.0 / len(cells))
+    out = ('<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+           'border="0" style="margin-top:38px;"><tr>')
+    for i, (icon, label, value) in enumerate(cells):
+        if i:
+            out += ('<td class="meta-sep" width="1" style="width:1px; border-left:1px solid '
+                    + c["rule"] + ';">&nbsp;</td>')
+        out += ('<td class="meta-cell" align="center" style="width:' + width + '%;'
+                ' padding:0 10px; text-align:center; vertical-align:top;">'
+                '<img src="' + _mail_asset("mail/" + MAIL_ICONS[icon]) + '" width="72"'
+                ' height="72" alt=""'
+                ' style="width:72px; height:72px; margin:0 auto 10px auto;">'
+                '<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:'
+                + c["label"] + ';">' + _esc(label) + '</div>'
+                '<div style="font-family:Arial,Helvetica,sans-serif; font-size:18px;'
+                ' line-height:1.3; color:' + c["teal"] + '; font-weight:700; margin-top:4px;">'
+                + _esc(value) + '</div></td>')
+    return out + '</tr></table>'
+
+
+def _mail_button_block(button):
+    """Gecentreerde teal knop. Geef '&' mee, niet '&amp;': hier wordt ge-escaped."""
+    if not button or not button[1]:
+        return ""
+    text, url = button
+    c = MAIL_COLORS
+    return ('<table role="presentation" cellspacing="0" cellpadding="0" border="0"'
+            ' align="center" style="margin:34px auto 6px;"><tr>'
+            '<td align="center" bgcolor="' + c["teal"] + '" style="border-radius:12px;">'
+            '<a href="' + _esc(url) + '" style="display:inline-block; padding:15px 30px;'
+            ' color:#ffffff; font-family:Arial,Helvetica,sans-serif; font-size:16px;'
+            ' font-weight:700; text-decoration:none; border-radius:12px;">'
+            + _esc(text) + '</a></td></tr></table>')
+
+
+def _mail_html(heading, client, intro, cells, button=None):
+    """Bouw de klantmail uit het gedeelde sjabloon."""
+    blocks = ""
+    for para in [p for p in (intro or "").split("\n\n") if p.strip()]:
+        blocks += ('<div class="copy" style="font-family:Arial,Helvetica,sans-serif;'
+                   ' font-size:17px; line-height:1.55; color:' + MAIL_COLORS["text"] + ';'
+                   ' text-align:center; padding-top:18px;">'
+                   + _esc(para).replace("\n", "<br>") + '</div>')
+    values = dict(MAIL_COLORS)
+    values.update({
+        "heading": _esc(heading or ""),
+        "greeting": "Beste %s," % _esc(client or "klant"),
+        "intro_blocks": blocks,
+        "meta_row": _mail_meta_row(cells),
+        "button_block": _mail_button_block(button),
+        "logo_url": _mail_asset("logos/office-interior.png"),
+        "icon_mail": _mail_asset("mail/icon-mail.png"),
+        "contact_email": MAIL_CONTACT_EMAIL,
+    })
+    html = MAIL_TEMPLATE
+    for k, v in values.items():
+        html = html.replace("{{%s}}" % k, v)
+    return html
+
+
+def _mail_text(client, intro, cells, link=None):
+    """Platte-tekstversie: bevat de gegevens EN de link, want als de client de
+    HTML blokkeert bestaat de knop niet."""
+    lines = ["Beste %s," % (client or "klant"), "", (intro or ""), ""]
+    lines += ["%s: %s" % (label, value) for _, label, value in cells]
+    if link:
+        lines += ["", link]
+    lines += ["", "Met vriendelijke groet,", "Office-Interior"]
+    return "\n".join(lines)
 
 
 def _smtp_send(to_list, subject, body, html=None):
