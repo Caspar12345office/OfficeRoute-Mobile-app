@@ -561,9 +561,16 @@ def _api_send(to, subject, text, html=None):
             if reply_to:
                 body["reply_to"] = reply_to
             payload = json.dumps(body).encode("utf-8")
-            req = urllib.request.Request("https://api.resend.com/emails", data=payload,
-                                         headers={"Authorization": "Bearer " + key,
-                                                  "Content-Type": "application/json"})
+            req = urllib.request.Request(
+                "https://api.resend.com/emails", data=payload,
+                headers={"Authorization": "Bearer " + key,
+                         "Content-Type": "application/json",
+                         "Accept": "application/json",
+                         # De User-Agent is NIET optioneel: zonder eigen user-agent
+                         # vertrekt dit als "Python-urllib/3.x" en blokkeert de
+                         # Cloudflare-laag voor api.resend.com het verzoek met
+                         # HTTP 403 "error code: 1010" (browser signature banned).
+                         "User-Agent": "OfficeRoute-Monteur/1.0 (+https://office-interior.nl)"})
             urllib.request.urlopen(req, timeout=10).read()
             return True
         except Exception:
