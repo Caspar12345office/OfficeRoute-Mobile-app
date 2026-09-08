@@ -1226,6 +1226,8 @@ a { color:{{teal}}; text-decoration:none; }
   .meta-cell { display:block !important; width:100% !important; padding:0 0 18px 0 !important; }
   .meta-sep { display:none !important; }
   .btn-cell { display:block !important; width:100% !important; padding:0 0 12px 0 !important; }
+  /* anders breekt planning@office-interior.com op 375px over twee regels */
+  .foot-mail { font-size:14px !important; }
 }
 </style>
 </head>
@@ -1257,7 +1259,7 @@ a { color:{{teal}}; text-decoration:none; }
 </td>
 <td style="vertical-align:middle; text-align:left;">
 <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:{{label}};">Vragen over de levering?</div>
-<div style="font-family:Arial,Helvetica,sans-serif; font-size:16px; color:{{teal}}; font-weight:700; margin-top:3px;">
+<div class="foot-mail" style="font-family:Arial,Helvetica,sans-serif; font-size:16px; color:{{teal}}; font-weight:700; margin-top:3px;">
 <a href="mailto:{{contact_email}}" style="color:{{teal}}; text-decoration:none;">{{contact_email}}</a></div>
 </td></tr></table>
 </td></tr>
