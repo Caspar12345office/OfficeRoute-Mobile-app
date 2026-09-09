@@ -1201,6 +1201,8 @@ MAIL_COLORS = {
     # buitenvlak lichtgrijs (was beige #f6f1e8); gelijk met de kantoor-app
     "outer": "#efefef", "card": "#ffffff",
     "teal": "#053f44", "text": "#31464e", "label": "#6c7b80",
+    # knoppen in de huiskleur groen; koppen en waarden blijven teal
+    "btn": "#2f9631",
     "rule": "#e1e5e3", "foot_rule": "#e8ebe9",
 }
 MAIL_ICONS = {"calendar": "icon-calendar.png", "clock": "icon-clock.png",
@@ -1320,8 +1322,8 @@ def _mail_button_block(buttons):
     c = MAIL_COLORS
     cells = ""
     for i, (text, url) in enumerate(items):
-        fill = c["teal"] if i == 0 else "#ffffff"
-        ink = "#ffffff" if i == 0 else c["teal"]
+        fill = c["btn"] if i == 0 else "#ffffff"
+        ink = "#ffffff" if i == 0 else c["btn"]
         pad = "0 0 0 10px" if i else "0"
         # ÉÉN element bepaalt de vorm: de link draagt de achtergrond, de rand en
         # de ronding. Zet je die ook op de tabelcel, dan zie je bij de gevulde
@@ -1330,7 +1332,7 @@ def _mail_button_block(buttons):
                   ' style="padding:' + pad + ';">'
                   '<a href="' + _esc(url) + '" style="display:inline-block;'
                   ' padding:13px 26px; background:' + fill + '; color:' + ink + ';'
-                  ' border:2px solid ' + c["teal"] + '; border-radius:12px;'
+                  ' border:2px solid ' + c["btn"] + '; border-radius:12px;'
                   ' font-family:Arial,Helvetica,sans-serif; font-size:16px;'
                   ' font-weight:700; text-decoration:none; white-space:nowrap;">'
                   + _esc(text) + '</a></td>')
