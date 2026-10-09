@@ -10,6 +10,16 @@ import secrets
 from flask import Flask, request
 from monteur import bp
 
+# Foutmonitoring (Sentry) - alleen actief als SENTRY_DSN is gezet; anders slaapt het.
+try:
+    import sentry_sdk
+    _sentry_dsn = os.environ.get("SENTRY_DSN")
+    if _sentry_dsn:
+        sentry_sdk.init(dsn=_sentry_dsn, traces_sample_rate=0.0, send_default_pii=False,
+                        environment=os.environ.get("RENDER_SERVICE_NAME") or "local")
+except Exception:
+    pass
+
 
 def _load_secret_key():
     env = os.environ.get("SECRET_KEY")
