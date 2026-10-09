@@ -6,4 +6,5 @@ __pycache__/
 .secret_key
 oi_uploads/
 .venv/
-.claude/
+.claude/*
+!.claude/skills/
