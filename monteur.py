@@ -119,8 +119,9 @@ def _get_pg_pool():
         # open=False + valideren met korte timeout: check NU of de pool echt verbindt.
         # Zo niet -> pool weggooien en directe verbindingen gebruiken. Voorkomt dat elke
         # request de volle pool-timeout afwacht op een kapotte pool (verse Render-build).
-        p = ConnectionPool(_PG_URL, min_size=1, max_size=3,
-                           kwargs={"autocommit": True}, timeout=3, open=False)
+        p = ConnectionPool(_PG_URL, min_size=1, max_size=5,
+                           kwargs={"autocommit": True}, timeout=5, open=False,
+                           check=ConnectionPool.check_connection, max_idle=300, max_lifetime=1800)
         p.open()
         _c = p.getconn(timeout=3)
         p.putconn(_c)
@@ -240,24 +241,43 @@ class _PgCur:
         return iter(self._cur)
 
 
+_PG_POOL_FAILS = 0
+
+
 class _PgConn:
     def __init__(self):
+        global _PG_POOL, _PG_POOL_FAILS
         self._pool = _get_pg_pool()
         if self._pool is not None:
             try:
                 self._raw = self._pool.getconn()
+                _PG_POOL_FAILS = 0
             except Exception:
-                global _PG_POOL
-                try:
-                    self._pool.close()
-                except Exception:
-                    pass
-                _PG_POOL = None
+                # Pool even vol: deze keer een directe verbinding. Eerder werd de pool
+                # dan meteen voor iedereen gesloten; nu pas na drie missers op rij (dan
+                # is hij echt kapot en willen we niet steeds de wachttijd betalen).
+                _PG_POOL_FAILS += 1
+                if _PG_POOL_FAILS >= 3:
+                    try:
+                        self._pool.close()
+                    except Exception:
+                        pass
+                    _PG_POOL = None
                 self._pool = None
         if self._pool is None:
             import psycopg
             self._raw = psycopg.connect(_PG_URL, autocommit=True)
         self._lastid = None
+        self._closed = False
+        # Onthouden binnen het verzoek: loopt een pagina vast voordat hij close()
+        # aanroept, dan geeft _release_request_conns de verbinding toch terug.
+        # Zonder dat liep de pool na een paar fouten leeg (en volgden er meer 500's).
+        try:
+            from flask import has_request_context, g as _g
+            if has_request_context():
+                _g.setdefault("_oi_conns", []).append(self)
+        except Exception:
+            pass
     def cursor(self):
         return _PgCur(self)
     def execute(self, sql, params=()):
@@ -267,6 +287,9 @@ class _PgConn:
     def commit(self):
         pass
     def close(self):
+        if self._closed:
+            return
+        self._closed = True
         try:
             if self._pool is not None:
                 self._pool.putconn(self._raw)
@@ -274,6 +297,19 @@ class _PgConn:
                 self._raw.close()
         except Exception:
             pass
+
+
+def _release_request_conns(exc=None):
+    """Na elk verzoek: verbindingen die niet netjes zijn gesloten alsnog teruggeven."""
+    try:
+        from flask import g as _g
+        for c in (_g.pop("_oi_conns", None) or []):
+            try:
+                c.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def db():
@@ -1691,3 +1727,6 @@ def service_worker():
 
 
 init_db()
+
+
+bp.teardown_app_request(_release_request_conns)
