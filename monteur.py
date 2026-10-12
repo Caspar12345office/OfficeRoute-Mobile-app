@@ -435,11 +435,10 @@ def integ_status(ikey):
 
 
 def route_alerts(monteur_id, has_stops):
-    out = []
-    if has_stops and monteur_id == 1:
-        out.append({"icon": "🚗", "desc": "File A2 richting Den Bosch", "min": 25})
-        out.append({"icon": "🚧", "desc": "Wegwerkzaamheden N65 (Tilburg)", "min": 10})
-    return [a for a in out if a["min"] >= ALERT_THRESHOLD]
+    """Hier stond een demo-file (A2, N65) die altijd bij monteur 1 verscheen. Echte
+    file-informatie zit in Google Maps en Waze zelf; de kantoor-app toont de echte
+    vertraging op de route. Dus hier geen verzonnen meldingen meer."""
+    return []
 
 
 def my_unseen_decision(u):
@@ -1193,13 +1192,21 @@ def api_leave_request():
         return jsonify(ok=False), 403
     f = request.form
     cat = f.get("category", "verlof")
+    if cat not in ("verlof", "afspraak"):
+        cat = "verlof"
+    d_from = (f.get("date_from") or "").strip()
+    d_to = (f.get("date_to") or "").strip() or d_from
+    if not _re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", d_from):
+        return jsonify(ok=False, error="Kies eerst een datum.")
+    if not _re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", d_to) or d_to < d_from:
+        return jsonify(ok=False, error="De einddatum ligt voor de begindatum.")
     conn = db()
     conn.execute("""INSERT INTO leave_requests(user_id,user_name,is_monteur,monteur_id,category,leave_type,
                     date_from,date_to,time_from,time_to,reason,status,created_at)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?, 'open', ?)""",
                  (u["id"], u["name"], 1 if u["role"] == "monteur" else 0, u["monteur_id"],
                   cat, (f.get("leave_type") if cat == "verlof" else "afspraak"),
-                  f.get("date_from"), f.get("date_to") or f.get("date_from"),
+                  d_from, (d_to if cat == "verlof" else d_from),
                   f.get("time_from"), f.get("time_to"), f.get("reason", ""),
                   datetime.now().isoformat(timespec="minutes")))
     conn.commit()

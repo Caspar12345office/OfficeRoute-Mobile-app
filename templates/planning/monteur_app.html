@@ -75,7 +75,7 @@
   .daysum .sum div{flex:1;background:rgba(255,255,255,.12);border-radius:12px;padding:11px}
   .daysum .sum b{display:block;font-size:22px;font-weight:700}.daysum .sum span{font-size:10.5px;color:#bcdcd2}
   .daysum .muted2{margin-top:10px;color:#9fc0b7;font-size:13px}
-  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#11403f;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88%;text-align:center}
+  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#11403f;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:300;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88%;text-align:center}
   .toast.show{opacity:1}
   .annsent{color:var(--green)!important;border-color:var(--green)!important}
   /* Urenregistratie */
@@ -432,11 +432,24 @@ function submitComplete(){
     else{err.textContent=res.error||'Mislukt';err.style.display='block';}});
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
-function submitLeave(btn){var obj={};new FormData(document.getElementById('leaveForm')).forEach(function(v,k){obj[k]=v;});btn.disabled=true;
+/* Verlof indienen: eerst de datum controleren, dan versturen. De knop wordt bij elke
+   uitkomst weer klikbaar (hij bleef eerder grijs als het versturen haperde) en de
+   melding komt als balkje, niet als systeem-pop-up. */
+function submitLeave(btn){
+  var form=document.getElementById('leaveForm'), obj={};
+  new FormData(form).forEach(function(v,k){obj[k]=v;});
+  if(!obj.date_from){ toast('Kies eerst een datum'); return; }
+  if(obj.category==='verlof' && obj.date_to && obj.date_to<obj.date_from){ toast('De einddatum ligt voor de begindatum'); return; }
+  var label=btn.textContent; btn.disabled=true; btn.textContent='Bezig…';
+  function done(){ btn.disabled=false; btn.textContent=label; }
+  function close(){ document.getElementById('leaveModal').style.display='none'; form.reset(); lvToggle(); }
   oiPost(U_LEAVE,obj).then(function(res){
-    if(res.queued){document.getElementById('leaveModal').style.display='none';alert('Aanvraag bewaard - wordt verstuurd zodra je online bent.');}
-    else if(res.ok){alert('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.');document.getElementById('leaveModal').style.display='none';}
-    else{btn.disabled=false;alert(res.error||'Mislukt');}});}
+    done();
+    if(res.queued){ close(); toast('Aanvraag bewaard - wordt verstuurd zodra je online bent'); }
+    else if(res.ok){ close(); toast('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.'); }
+    else{ toast(res.error||'Indienen mislukt, probeer het opnieuw'); }
+  }).catch(function(){ done(); toast('Indienen mislukt, probeer het opnieuw'); });
+}
 function confirmCloseRoute(){document.getElementById('closeConfirm').style.display='flex';}
 function doCloseRoute(){oiPost(U_CLOSE,{}).then(function(res){
   if(res.queued){document.getElementById('closeConfirm').style.display='none';toast('Route-afsluiting bewaard - wordt verstuurd zodra je online bent');}

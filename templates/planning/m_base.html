@@ -193,7 +193,8 @@ function oiFlush(){
   if(!navigator.onLine)return;var q=oiQueueGet();if(!q.length)return;oiQueueSet([]);
   (function next(){if(!q.length){updateOffline();return;}var it=q.shift();
     fetch(it.url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:it.body})
-      .then(function(){next();})
+      // Serverfout: bewaren en later opnieuw proberen in plaats van stil weggooien.
+      .then(function(r){ if(r.status>=500){var rest=oiQueueGet();rest.unshift(it);oiQueueSet(rest);updateOffline();return;} next(); })
       .catch(function(){var rest=oiQueueGet();rest.unshift(it);oiQueueSet(rest);updateOffline();});})();
 }
 function updateOffline(){var bar=document.getElementById('offlineBar');if(!bar)return;var q=oiQueueGet();
