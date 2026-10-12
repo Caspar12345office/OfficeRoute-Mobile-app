@@ -411,6 +411,27 @@ def current_user():
     return u
 
 
+# Gelijk houden met is_leave_approver in de kantoor-app: beheerders, het recht
+# 'Verlofaanvragen goedkeuren', en als vangnet de vaste adressen van vroeger.
+_LEGACY_APPROVERS = {"caspar@office-interior.nl", "aleks@office-interior.nl",
+                     "stijn@office-interior.nl", "jorik@office-interior.nl"}
+
+
+def _leave_approver_names(conn):
+    names = []
+    for r in conn.execute("""SELECT name, email, role, permissions FROM users WHERE active=1
+                             AND role NOT IN ('monteur','picker') ORDER BY name""").fetchall():
+        try:
+            perms = set(json.loads(r["permissions"] or "[]"))
+        except Exception:
+            perms = set()
+        if r["role"] == "beheerder" or "approve_leave" in perms or (r["email"] or "").lower() in _LEGACY_APPROVERS:
+            names.append(r["name"])
+    if not names:
+        return "kantoor"
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " en " + names[-1]
+
+
 def user_perms(u):
     if not u:
         return set()
@@ -862,6 +883,11 @@ def monteur_app():
                                    "ORDER BY work_date DESC", (mid, today[:7] + "%")).fetchall()
         month_total = sum((r["worked_min"] or 0) for r in hours_month)
         month_ot = sum((r["overtime_min"] or 0) for r in hours_month)
+    # Eigen verlofaanvragen met hun status, zodat de monteur ziet wat hij heeft aangevraagd.
+    my_leave = conn.execute("""SELECT category, leave_type, date_from, date_to, time_from, time_to, status,
+                                      decision_reason, decided_by FROM leave_requests
+                               WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (u["id"],)).fetchall()
+    leave_approvers = _leave_approver_names(conn)
     conn.close()
     # Herinnering: na 20:00 en vandaag nog geen uren ingediend
     remind_hours = bool(mid and hours_today is None and _nl_hour() >= 20)
@@ -875,7 +901,7 @@ def monteur_app():
                            maps_ready=(integ_status("google_maps") == "verbonden"),
                            hours_today=hours_today, hours_month=hours_month,
                            month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,
-                           today_iso=today)
+                           today_iso=today, my_leave=my_leave, leave_approvers=leave_approvers)
 
 
 @bp.route("/monteur/complete/<int:pid>", methods=["POST"])

@@ -39,6 +39,13 @@
   .ikrow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
   .ikrow .av{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
   .ikrow b{font-size:16px;display:block}.ikrow span{font-size:12.5px;color:var(--muted);display:block;margin-top:3px}
+  .lvlist{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 14px;margin-bottom:10px}
+  .lvlist h4{margin:10px 0 2px;font-size:13px;color:var(--muted);font-weight:600}
+  .lvitem{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .lvitem:first-of-type{border-top:0}
+  .lvitem b{font-size:14px;display:block}.lvitem span{font-size:12.5px;color:var(--muted);display:block;margin-top:2px}
+  .lvst{flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px}
+  .lvst.open{background:#fbeccd;color:#9a6a17}.lvst.goedgekeurd{background:#e3f3da;color:#3c7a2c}.lvst.afgewezen{background:#f7e2dc;color:#a23d2a}
   .callrow{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:11px;color:var(--ink)}
   .callrow .cav{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
   .callrow .cinfo{display:flex;flex-direction:column}
@@ -219,6 +226,19 @@
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'"><svg class="ico"><use href="#ic-calendar"/></svg> Verlof / afspraak aanvragen</button>
+  {% macro nld(d) %}{{ (d[8:10] ~ '-' ~ d[5:7] ~ '-' ~ d[:4]) if d and d|length >= 10 else (d or '') }}{% endmacro %}
+  {% if my_leave %}
+  <div class="lvlist">
+    <h4>Mijn aanvragen</h4>
+    {% for r in my_leave %}
+    <div class="lvitem">
+      <div><b>{% if r.category == 'afspraak' %}Afspraak{% else %}{{ {'vrij':'Vrije dag','vakantie':'Vakantie','atv':'ATV','ziekte':'Ziek'}.get(r.leave_type, r.leave_type or 'Verlof') }}{% endif %}</b>
+        <span>{{ nld(r.date_from) }}{% if r.category == 'afspraak' and r.time_from %} {{ r.time_from }}{% if r.time_to %}-{{ r.time_to }}{% endif %}{% elif r.date_to and r.date_to != r.date_from %} t/m {{ nld(r.date_to) }}{% endif %}{% if r.status != 'open' and r.decided_by %} · door {{ r.decided_by }}{% endif %}{% if r.decision_reason %} · “{{ r.decision_reason }}”{% endif %}</span></div>
+      <span class="lvst {{ r.status }}">{{ {'open':'In behandeling','goedgekeurd':'Goedgekeurd','afgewezen':'Afgewezen'}.get(r.status, r.status) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()"><svg class="ico"><use href="#ic-moon"/></svg> Donkere modus</button>
   <a class="btn-lg ghost" href="{{ url_for('planning.logout') }}">Uitloggen</a>
   <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon <svg class="ico"><use href="#ic-arrow-right"/></svg> “Zet op beginscherm”.</p>
@@ -279,7 +299,7 @@
 </div></div>
 
 <div class="ov" id="leaveModal"><div class="sheet">
-  <h3>Verlof / afspraak aanvragen</h3><div class="muted" style="font-size:12.5px;margin-bottom:4px">Gaat naar: Aleks, Stijn, Jorik en Caspar.</div>
+  <h3>Verlof / afspraak aanvragen</h3><div class="muted" style="font-size:12.5px;margin-bottom:4px">Gaat naar: {{ leave_approvers }}.</div>
   <form id="leaveForm">
     <label>Soort</label><select name="category" id="lvCat" onchange="lvToggle()"><option value="verlof">Vrije dag / verlof</option><option value="afspraak">Afspraak (tandarts/dokter/later beginnen)</option></select>
     <div id="lvTypeWrap"><label>Type</label><select name="leave_type"><option value="vrij">Vrije dag</option><option value="vakantie">Vakantie</option><option value="atv">ATV</option><option value="ziekte">Ziek</option></select></div>
@@ -446,7 +466,7 @@ function submitLeave(btn){
   oiPost(U_LEAVE,obj).then(function(res){
     done();
     if(res.queued){ close(); toast('Aanvraag bewaard - wordt verstuurd zodra je online bent'); }
-    else if(res.ok){ close(); toast('Aanvraag ingediend. Je krijgt bericht zodra er een beslissing is.'); }
+    else if(res.ok){ close(); toast('Aanvraag ingediend. Je ziet hem hieronder bij Mijn aanvragen.'); setTimeout(function(){ location.href=location.pathname+'?tab=ik'; }, 1200); }
     else{ toast(res.error||'Indienen mislukt, probeer het opnieuw'); }
   }).catch(function(){ done(); toast('Indienen mislukt, probeer het opnieuw'); });
 }
@@ -470,5 +490,7 @@ function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getEl
   else{navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;btn.textContent='Aanzetten';st.textContent='Live locatie uit';
     if(navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:false})});});}}
 urenCalc();urenNoteCnt();
+/* ?tab=ik opent meteen die tab (na het indienen van verlof). */
+(function(){try{var t=new URLSearchParams(location.search).get('tab');if(t&&document.getElementById('pane-'+t)){mtab(null,t);}}catch(e){}})();
 </script>
 {% endblock %}
