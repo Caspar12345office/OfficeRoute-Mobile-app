@@ -336,7 +336,15 @@ CREATE TABLE IF NOT EXISTS work_hours(id INTEGER PRIMARY KEY AUTOINCREMENT, mont
   UNIQUE(monteur_id, work_date));
 CREATE TABLE IF NOT EXISTS monteur_day_gps(monteur_id INTEGER, date TEXT, home_since TEXT,
   PRIMARY KEY(monteur_id, date));
+CREATE TABLE IF NOT EXISTS monteur_notices(id INTEGER PRIMARY KEY AUTOINCREMENT, monteur_id INTEGER, date TEXT,
+  kind TEXT, text TEXT, detail TEXT, created_by TEXT, created_at TEXT, seen INTEGER DEFAULT 0);
 """
+
+UREN_TERUG_DAGEN = 31     # zo ver terug mag een monteur vergeten uren nog zelf doorgeven
+
+
+def _uren_min_date(today):
+    return (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=UREN_TERUG_DAGEN)).date().isoformat()
 
 
 def init_db():
@@ -898,6 +906,22 @@ def monteur_app():
                                    "ORDER BY work_date DESC", (mid, today[:7] + "%")).fetchall()
         month_total = sum((r["worked_min"] or 0) for r in hours_month)
         month_ot = sum((r["overtime_min"] or 0) for r in hours_month)
+    # Uren van de afgelopen maand, zodat de monteur een vergeten dag kan invullen of aanpassen.
+    uren_min = _uren_min_date(today)
+    hours_recent = {}
+    if mid:
+        for r in conn.execute("""SELECT work_date, start_time, end_time, note, submitted_at FROM work_hours
+                                 WHERE monteur_id=? AND work_date>=?""", (mid, uren_min)).fetchall():
+            hours_recent[r["work_date"]] = {"start": r["start_time"] or "", "end": r["end_time"] or "",
+                                            "note": r["note"] or "", "at": r["submitted_at"] or ""}
+    # Laatste routewijziging door kantoor van vandaag (melding bovenin + in Meldingen).
+    last_notice = None
+    if mid:
+        try:
+            last_notice = conn.execute("""SELECT * FROM monteur_notices WHERE monteur_id=? AND date=? AND kind='route'
+                                          ORDER BY id DESC LIMIT 1""", (mid, today)).fetchone()
+        except Exception:
+            last_notice = None
     # Eigen verlofaanvragen met hun status, zodat de monteur ziet wat hij heeft aangevraagd.
     my_leave = _my_leave_overview(conn, u["id"])
     leave_approvers = _leave_approver_names(conn)
@@ -914,7 +938,39 @@ def monteur_app():
                            maps_ready=(integ_status("google_maps") == "verbonden"),
                            hours_today=hours_today, hours_month=hours_month,
                            month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,
-                           today_iso=today, my_leave=my_leave, leave_approvers=leave_approvers)
+                           today_iso=today, my_leave=my_leave, leave_approvers=leave_approvers,
+                           uren_min=uren_min, hours_recent=hours_recent, last_notice=last_notice)
+
+
+@bp.route("/api/notices")
+def api_notices():
+    """Kleine check (elke minuut vanuit de app): is er een nieuwe routewijziging van kantoor?"""
+    u = current_user()
+    if not u or not u["monteur_id"]:
+        return jsonify(ok=False), 403
+    conn = db()
+    try:
+        r = conn.execute("""SELECT id FROM monteur_notices WHERE monteur_id=? AND date=? AND seen=0
+                            ORDER BY id DESC LIMIT 1""", (u["monteur_id"], _today_iso())).fetchone()
+    except Exception:
+        r = None
+    conn.close()
+    return jsonify(ok=True, id=(r["id"] if r else 0))
+
+
+@bp.route("/api/notices-seen", methods=["POST"])
+def api_notices_seen():
+    u = current_user()
+    if not u or not u["monteur_id"]:
+        return jsonify(ok=False), 403
+    conn = db()
+    try:
+        conn.execute("UPDATE monteur_notices SET seen=1 WHERE monteur_id=? AND seen=0", (u["monteur_id"],))
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+    return jsonify(ok=True)
 
 
 @bp.route("/monteur/complete/<int:pid>", methods=["POST"])
@@ -1146,10 +1202,20 @@ def close_route():
 
 @bp.route("/monteur/uren", methods=["POST"])
 def monteur_uren():
-    """Uren van vandaag indienen/bijwerken. Verleden dagen zijn niet bewerkbaar."""
+    """Uren indienen of aanpassen, voor vandaag of een eerdere dag (tot een maand terug):
+    een monteur die het vergat, kan het zo alsnog doen. Kantoor ziet in het urenregister
+    dat het achteraf is doorgegeven (submitted_at ligt na de werkdag)."""
     u = current_user()
     if not u or not u["monteur_id"]:
         return jsonify(ok=False, error="Geen monteurprofiel."), 403
+    today = _today_iso()
+    day = (request.form.get("date") or "").strip() or today
+    if not _re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$", day):
+        return jsonify(ok=False, error="Kies een geldige datum."), 400
+    if day > today:
+        return jsonify(ok=False, error="Uren voor een dag in de toekomst kun je nog niet doorgeven."), 400
+    if day < _uren_min_date(today):
+        return jsonify(ok=False, error="Uren van meer dan een maand geleden geef je door via kantoor."), 400
     start = (request.form.get("start") or "").strip()
     end = (request.form.get("end") or "").strip()
     note = (request.form.get("note") or "").strip()[:40]
@@ -1157,16 +1223,14 @@ def monteur_uren():
     if not calc:
         return jsonify(ok=False, error="Vul een geldige start- en eindtijd in (eind na start)."), 400
     worked, overtime = calc
-    today = _today_iso()
     conn = db()
-    # Zekerheidshalve: alleen vandaag mag geschreven worden (verleden blijft vast).
     conn.execute("""INSERT INTO work_hours(monteur_id,user_id,user_email,user_name,work_date,start_time,end_time,
                     worked_min,overtime_min,note,submitted_at)
                     VALUES(?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(monteur_id,work_date) DO UPDATE SET start_time=excluded.start_time,
                     end_time=excluded.end_time,worked_min=excluded.worked_min,overtime_min=excluded.overtime_min,
                     note=excluded.note,submitted_at=excluded.submitted_at""",
-                 (u["monteur_id"], u["id"], u["email"], u["name"], today, start, end,
+                 (u["monteur_id"], u["id"], u["email"], u["name"], day, start, end,
                   worked, overtime, note, datetime.now().isoformat(timespec="minutes")))
     conn.commit()
     conn.close()

@@ -112,6 +112,17 @@
   .um-row .t{color:var(--muted);font-size:12px;margin-top:1px}
   .um-row .ov{color:var(--gold);font-weight:700;font-size:12px}
   [data-theme="dark"] .uren-done{background:#13302a;border-color:#2c5a44;color:#8fd07f}
+  .uren-day{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:10px 13px;margin-bottom:10px}
+  .uren-day label{display:block;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 0 3px}
+  .uren-day input{width:100%;border:0;background:transparent;font:inherit;font-size:18px;font-weight:700;color:var(--accent);padding:0}
+  .uren-day .past{font-size:12px;color:var(--gold);font-weight:600;margin-top:3px}
+  .um-row.edit{cursor:pointer}
+  .um-row.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+  .rnotice{display:flex;gap:10px;align-items:flex-start;background:#f3e6c9;border:1px solid #e6cf9c;color:#6b5216;border-radius:13px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
+  .rnotice b{display:block}
+  .rnotice .lst{white-space:pre-line;margin-top:6px;font-size:13px}
+  [data-theme="dark"] .rnotice{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  #rnBar{display:none;position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);z-index:150;background:var(--gold);color:#fff;border-radius:14px;padding:13px 15px;font-weight:700;font-size:14px;box-shadow:0 10px 26px rgba(0,0,0,.25);cursor:pointer;text-align:center}
 {% endblock %}
 
 {% block content %}
@@ -156,6 +167,7 @@
       </a>
     </div>
     {% endif %}
+    {% if last_notice and not last_notice.seen %}<div class="rnotice"><svg class="ico"><use href="#ic-bell"/></svg> <div><b>Je route is aangepast door kantoor{% if last_notice.created_by %} ({{ last_notice.created_by }}){% endif %} om {{ (last_notice.created_at or '')[11:16] }}</b>Hieronder staat de nieuwe volgorde.</div></div>{% endif %}
     {% if alerts %}<div class="alert"><svg class="ico"><use href="#ic-alert"/></svg> <div><b>Vertraging op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}</div></div>{% endif %}
     {% if not jobs %}<div class="jc"><b>Geen leveringen vandaag.</b><div class="ad">Je route is leeg. Fijne dag!</div></div>{% endif %}
     {% for j in jobs %}
@@ -191,6 +203,11 @@
     <div class="alert"><svg class="ico"><use href="#ic-alert"/></svg> <div><b>Files / werkzaamheden op je route</b>{% for a in alerts %}{{ a.icon }} {{ a.desc }} · +{{ a.min }} min<br>{% endfor %}Je aankomsttijden zijn bijgewerkt.</div></div>
   {% else %}
     <div class="okbar"><svg class="ico"><use href="#ic-check"/></svg> Geen files of werkzaamheden op je route - je kunt vlot doorrijden.</div>
+  {% endif %}
+
+  {% if last_notice %}
+  <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Wijziging van je route</h3>
+  <div class="rnotice"><svg class="ico"><use href="#ic-bell"/></svg> <div><b>Aangepast om {{ (last_notice.created_at or '')[11:16] }}{% if last_notice.created_by %} door {{ last_notice.created_by }}{% endif %}</b><div class="lst">{{ last_notice.detail }}</div></div></div>
   {% endif %}
 
   <h3 style="margin:22px 2px 10px;font-size:17px;color:var(--accent)">Berichten van klanten</h3>
@@ -267,8 +284,11 @@
     <div class="jc"><b>Geen monteurprofiel gekoppeld.</b><div class="ad">Uren registreren kan alleen met een gekoppeld monteurprofiel.</div></div>
   {% else %}
   <h3 style="margin:4px 2px 4px;font-size:17px;color:var(--accent)">Mijn uren</h3>
-  <p class="muted" style="font-size:12.5px;margin:0 0 14px">Vul je begin- en eindtijd in. Alles boven 8 uur telt automatisch als overuren.</p>
-  {% if hours_today %}<div class="uren-done"><svg class="ico"><use href="#ic-check"/></svg> Ingediend om {{ hours_today.submitted_at[-5:] }} - je kunt vandaag nog aanpassen.</div>{% endif %}
+  <p class="muted" style="font-size:12.5px;margin:0 0 14px">Vul je begin- en eindtijd in. Alles boven 8 uur telt automatisch als overuren. Vergeten? Kies een eerdere dag, tot een maand terug.</p>
+  <div class="uren-day"><label>Datum</label>
+    <input type="date" id="uDate" value="{{ today_iso }}" max="{{ today_iso }}" min="{{ uren_min }}" onchange="urenPickDay()">
+    <div class="past" id="uPast" style="display:none">Je geeft uren door voor een eerdere dag.</div></div>
+  <div class="uren-done" id="uDone" style="display:none"><svg class="ico"><use href="#ic-check"/></svg> <span id="uDoneTxt"></span></div>
   <div class="uren-times">
     <div class="uren-tf"><label>Start</label><input type="time" id="uStart" value="{{ hours_today.start_time if hours_today else '' }}" onchange="urenCalc()"></div>
     <div class="uren-tf"><label>Eind</label><input type="time" id="uEnd" value="{{ hours_today.end_time if hours_today else '' }}" onchange="urenCalc()"></div>
@@ -284,11 +304,11 @@
     <div class="cnt"><span id="uNoteCnt">0</span>/40</div>
   </div>
   <div id="uErr" style="color:#a23d2a;font-size:13px;display:none;margin:4px 0"></div>
-  <button class="btn-lg primary" style="margin-top:6px" onclick="submitUren(this)">Indienen</button>
+  <button class="btn-lg primary" style="margin-top:6px" id="uBtn" onclick="submitUren(this)">Indienen</button>
   <div class="uren-month">
     <div class="mh"><b>Deze maand</b><span class="mtot">Totaal {{ month_total//60 }}u {{ '%02d'|format(month_total%60) }}m{% if month_ot %} · <span style="color:var(--gold)">+{{ month_ot//60 }}u {{ '%02d'|format(month_ot%60) }}m over</span>{% endif %}</span></div>
     {% for r in hours_month %}
-    <div class="um-row">
+    <div class="um-row{{ ' edit' if r.work_date >= uren_min }}" data-d="{{ r.work_date }}"{% if r.work_date >= uren_min %} onclick="urenEdit('{{ r.work_date }}')" title="Tik om aan te passen"{% endif %}>
       <div><div class="d">{{ r.work_date[8:10] }}-{{ r.work_date[5:7] }}</div><div class="t">{{ r.start_time }}-{{ r.end_time }}{% if r.note %} · {{ r.note }}{% endif %}</div></div>
       <div style="text-align:right"><div>{{ r.worked_min//60 }}u {{ '%02d'|format(r.worked_min%60) }}m</div>{% if r.overtime_min %}<div class="ov">+{{ r.overtime_min//60 }}u {{ '%02d'|format(r.overtime_min%60) }}m</div>{% endif %}</div>
     </div>
@@ -375,6 +395,19 @@
   </div>
 </div>
 
+{% if last_notice and not last_notice.seen %}
+<div class="leavepop" id="routePop">
+  <div class="lb">
+    <div class="ic"><svg class="ico"><use href="#ic-bell"/></svg></div>
+    <h3 style="color:var(--accent)">Je route is aangepast</h3>
+    <p>Kantoor{% if last_notice.created_by %} ({{ last_notice.created_by }}){% endif %} heeft je route van vandaag gewijzigd om {{ (last_notice.created_at or '')[11:16] }}. Nieuwe volgorde:</p>
+    <div style="text-align:left;white-space:pre-line;background:var(--soft);border-radius:11px;padding:10px 12px;margin:-6px 0 16px;font-size:14px;max-height:40vh;overflow:auto">{{ last_notice.detail }}</div>
+    <button class="btn-lg primary" onclick="routeSeen()">Begrepen</button>
+  </div>
+</div>
+{% endif %}
+<div id="rnBar" onclick="location.href=location.pathname">Kantoor heeft je route aangepast. Tik om bij te werken.</div>
+
 {% if remind_hours %}
 <div class="leavepop" id="urenRemind" style="display:none">
   <div class="lb">
@@ -405,6 +438,38 @@ var U_CLOSE='{{ url_for("planning.close_route") }}';
 var U_LEAVE='{{ url_for("planning.api_leave_request") }}';
 var U_BUSISSUE='{{ url_for("planning.api_bus_issue") }}';
 var U_UREN='{{ url_for("planning.monteur_uren") }}';
+var U_RECENT={{ hours_recent|tojson }}, U_TODAY='{{ today_iso }}', U_MIN='{{ uren_min }}';
+function _nlDay(iso){var p=(iso||'').split('-');return p.length===3?(p[2]+'-'+p[1]):iso;}
+/* Dag kiezen: bestaande uren van die dag invullen, anders leeg. */
+function urenPickDay(){
+  var d=document.getElementById('uDate'); if(!d)return; var day=d.value||U_TODAY;
+  if(day>U_TODAY){day=U_TODAY;d.value=day;} if(day<U_MIN){day=U_MIN;d.value=day;}
+  var r=U_RECENT[day]||null;
+  document.getElementById('uStart').value=r?r.start:''; document.getElementById('uEnd').value=r?r.end:'';
+  document.getElementById('uNote').value=r?r.note:'';
+  var done=document.getElementById('uDone'), txt=document.getElementById('uDoneTxt');
+  if(r){ var at=(r.at||''); txt.textContent='Al doorgegeven'+(at.slice(0,10)!==day&&at?' op '+_nlDay(at.slice(0,10)):'')+' om '+at.slice(11,16)+'. Je kunt het nog aanpassen.'; done.style.display='flex'; }
+  else { done.style.display='none'; }
+  document.getElementById('uPast').style.display=(day<U_TODAY)?'block':'none';
+  document.getElementById('uBtn').textContent=r?'Aanpassen':'Indienen';
+  document.querySelectorAll('.um-row').forEach(function(x){x.classList.toggle('sel',x.getAttribute('data-d')===day&&day!==U_TODAY);});
+  urenCalc(); urenNoteCnt();
+}
+function urenEdit(day){var d=document.getElementById('uDate');d.value=day;urenPickDay();document.querySelector('.m-content').scrollTop=0;}
+function routeSeen(){var p=document.getElementById('routePop');if(p)p.style.display='none';
+  fetch('{{ url_for("planning.api_notices_seen") }}',{method:'POST'}).catch(function(){});}
+/* Elke minuut kijken of kantoor de route heeft aangepast (alleen als de app open is). */
+(function(){
+  var seenId={{ last_notice.id if (last_notice and not last_notice.seen) else 0 }};
+  function check(){ if(document.hidden)return;
+    fetch('{{ url_for("planning.api_notices") }}',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.id&&d.id!==seenId){ seenId=d.id; var b=document.getElementById('rnBar'); if(b)b.style.display='block';
+        try{if(navigator.vibrate)navigator.vibrate([180,80,180]);}catch(e){} }
+    }).catch(function(){});
+  }
+  setInterval(check,60000);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
+})();
 function _urenMins(v){var p=(v||'').split(':');if(p.length!==2)return null;var h=+p[0],m=+p[1];if(isNaN(h)||isNaN(m))return null;return h*60+m;}
 function _fmtHM(m){return Math.floor(m/60)+'u '+('0'+(m%60)).slice(-2)+'m';}
 function urenCalc(){
@@ -418,11 +483,12 @@ function urenCalc(){
 function urenNoteCnt(){var el=document.getElementById('uNote'),c=document.getElementById('uNoteCnt');if(el&&c)c.textContent=el.value.length;}
 function submitUren(btn){
   var s=document.getElementById('uStart').value,e=document.getElementById('uEnd').value,note=document.getElementById('uNote').value,err=document.getElementById('uErr');
+  var day=(document.getElementById('uDate')||{}).value||U_TODAY;
   if(_urenMins(s)===null||_urenMins(e)===null||_urenMins(e)<=_urenMins(s)){err.textContent='Vul een geldige start- en eindtijd in (eind na start).';err.style.display='block';return;}
   err.style.display='none';btn.disabled=true;
-  oiPost(U_UREN,{start:s,end:e,note:note}).then(function(res){
+  oiPost(U_UREN,{start:s,end:e,note:note,date:day}).then(function(res){
     if(res.queued){toast('Bewaard - wordt verstuurd zodra je online bent');btn.disabled=false;}
-    else if(res.ok){toast('Uren ingediend');location.reload();}
+    else if(res.ok){toast(day<U_TODAY?'Uren van '+_nlDay(day)+' doorgegeven':'Uren ingediend');setTimeout(function(){location.href=location.pathname+'?tab=uren';},900);}
     else{btn.disabled=false;err.textContent=res.error||'Mislukt';err.style.display='block';}});
 }
 function toast(msg){var t=document.getElementById('oiToast');if(!t){t=document.createElement('div');t.id='oiToast';t.className='toast';document.body.appendChild(t);}
@@ -506,7 +572,7 @@ function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getEl
     btn.textContent='Uitzetten';st.textContent='Live locatie aan';}
   else{navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;btn.textContent='Aanzetten';st.textContent='Live locatie uit';
     if(navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:false})});});}}
-urenCalc();urenNoteCnt();
+urenPickDay();
 /* ?tab=ik opent meteen die tab (na het indienen van verlof). */
 (function(){try{var t=new URLSearchParams(location.search).get('tab');if(t&&document.getElementById('pane-'+t)){mtab(null,t);}}catch(e){}})();
 </script>

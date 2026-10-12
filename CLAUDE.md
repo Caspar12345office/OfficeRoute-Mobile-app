@@ -103,6 +103,12 @@ verlof goedkeuren als recht `approve_leave` + "Mijn aanvragen" in monteur- en ma
 Radius Velocity werkt tegen de echte API (refresh token inwisselen, Telematics-account,
 bussen op de dashboardkaart, kilometers per voertuig als schatting); donkere modus kantoor
 (keuze onderin het menu); monteurs toevoegen + automatische monteurskaart bij rol Monteur.
+Later op 2026-10-12: stops slepen in de planning (gouden lijn, `/api/reorder`, tijden worden
+herberekend) met een melding in de monteur-app bij een wijziging van de route van vandaag
+(tabel `monteur_notices`); routes per monteur inklappen; monteur geeft uren tot 31 dagen terug
+door (urenregister toont "achteraf doorgegeven"); handtekeningen wit in donkere modus
+(`.sigbox`); donkere modus in de hub; Leaflet-logo van de kaarten weg (de kleine
+OpenStreetMap-vermelding is verplicht en blijft).
 
 Open:
 - Google Maps-sleutel nog niet ingevuld (Koppelingen > Google Maps): tot dan is reistijd een
