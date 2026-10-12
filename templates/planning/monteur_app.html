@@ -122,6 +122,28 @@
   .rnotice b{display:block}
   .rnotice .lst{white-space:pre-line;margin-top:6px;font-size:13px}
   [data-theme="dark"] .rnotice{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  /* Vandaag / morgen */
+  .dayswitch{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:14px}
+  .dayswitch a{flex:1;text-align:center;padding:10px 6px;border-radius:11px;font-weight:700;font-size:14px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
+  .dayswitch a.on{background:var(--accent);color:#fff}
+  .dayswitch a.on.tm{background:#b5761f}
+  .dayswitch .cnt{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;background:rgba(0,0,0,.08)}
+  .dayswitch a.on .cnt{background:rgba(255,255,255,.25)}
+  #pane-route.ahead{background:repeating-linear-gradient(135deg,rgba(181,118,31,.07) 0 14px,transparent 14px 28px)}
+  .tmbanner{background:#b5761f;color:#fff;border-radius:16px;padding:15px 16px;margin-bottom:14px;box-shadow:0 10px 24px rgba(181,118,31,.32);position:sticky;top:8px;z-index:5}
+  .tmbanner .t1{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+  .tmbanner .t1 svg{width:22px;height:22px}
+  .tmbanner .t2{font-size:14.5px;margin-top:4px;font-weight:600}
+  .tmbanner .t3{font-size:13px;margin-top:6px;background:rgba(0,0,0,.16);border-radius:10px;padding:7px 10px;line-height:1.4}
+  .jc.tm{border:2px dashed #cf9a4d;box-shadow:none;position:relative}
+  .jc.tm .seq{background:#b5761f}
+  .jc.tm .tmtag{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.06em;color:#fff;background:#b5761f;border-radius:999px;padding:3px 9px}
+  .loadcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 15px;margin-bottom:12px}
+  .loadcard h4{margin:0 0 8px;font-size:15px;color:var(--accent)}
+  .loadcard .li{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+  .loadcard .li:first-of-type{border-top:0}
+  .loadcard .li b{min-width:34px;color:#b5761f}
+  .loadcard .tip{font-size:12.5px;color:var(--muted);margin-top:8px}
   .vabar{display:flex;align-items:center;gap:10px;background:var(--gold);color:#fff;border-radius:13px;padding:11px 13px;margin:12px 14px 0;font-size:13.5px;font-weight:600;box-shadow:0 6px 16px rgba(184,138,68,.3)}
   .vabar svg{width:18px;height:18px;flex-shrink:0}
   .vabar a{margin-left:auto;background:rgba(255,255,255,.22);border-radius:9px;padding:6px 10px;font-size:12.5px;white-space:nowrap}
@@ -132,8 +154,42 @@
 {% block content %}
 {% if viewing %}<div class="vabar"><svg class="ico"><use href="#ic-eye"/></svg><span>Je kijkt mee als {{ viewing.name }}. Alleen kijken, knoppen doen niets.</span><a href="{{ url_for('planning.meekijken') }}">Andere monteur</a></div>{% endif %}
 <!-- ROUTE -->
-<div class="m-pane active" id="pane-route">
-  {% if closed %}
+<div class="m-pane active {{ 'ahead' if ahead }}" id="pane-route">
+  {% if monteur %}
+  <div class="dayswitch">
+    <a href="{{ url_for('planning.monteur_app') }}" class="{{ 'on' if not ahead }}">Vandaag</a>
+    <a href="{{ url_for('planning.monteur_app', dag='morgen') }}" class="tm {{ 'on' if ahead }}">{{ 'Morgen' if next_info.tomorrow else next_info.dayname|capitalize }}<span class="cnt">{{ next_info.count }}</span></a>
+  </div>
+  {% endif %}
+  {% if ahead and monteur %}
+    <div class="tmbanner">
+      <div class="t1"><svg class="ico"><use href="#ic-calendar"/></svg> Route van {{ 'morgen' if next_info.tomorrow else next_info.dayname }}</div>
+      <div class="t2">{{ next_info.label|capitalize }}</div>
+      <div class="t3">Alleen om je bus te laden. Dit is <b>niet</b> je route van vandaag: rij deze pas {{ 'morgen' if next_info.tomorrow else 'op ' ~ next_info.dayname }}.</div>
+    </div>
+    {% if not jobs_next %}
+      <div class="jc"><b>Nog geen route voor {{ next_info.label }}.</b><div class="ad">Kantoor heeft nog niets ingepland. Kijk later nog eens.</div></div>
+    {% else %}
+      {% if load_list %}
+      <div class="loadcard">
+        <h4><svg class="ico"><use href="#ic-truck"/></svg> Laadlijst ({{ jobs_next|length }} stop{{ 's' if jobs_next|length != 1 }})</h4>
+        {% for it in load_list %}<div class="li"><b>{{ it.qty }}x</b><span>{{ it.name }}</span></div>{% endfor %}
+        <div class="tip">Tip: laad in omgekeerde volgorde, dan liggen de spullen van stop 1 vooraan.</div>
+      </div>
+      {% endif %}
+      {% for j in jobs_next %}
+      <div class="jc tm">
+        <div class="r1"><span class="seq">{{ loop.index }}</span><span class="num">#{{ j.order_number }}</span><span class="tmtag">{{ 'MORGEN' if next_info.tomorrow else next_info.dayname|upper }}</span></div>
+        <div class="cl">{{ j.client }}</div>
+        <div class="ad">{{ j.delivery_address }}</div>
+        <div class="box items"><svg class="ico"><use href="#ic-box"/></svg> {{ j.items or '-' }}</div>
+        {% if j.service_type=='ophalen' %}<div class="box note"><svg class="ico"><use href="#ic-download"/></svg> Ophalen{% if j.pakbon %} · <a href="{{ url_for('planning.pakbon', oid=j.oid) }}" target="_blank" style="color:#0f6e56;font-weight:700">Pakbon openen</a>{% endif %}</div>{% endif %}
+        {% if j.instructions %}<div class="box note"><svg class="ico"><use href="#ic-pencil"/></svg> Van de planning: {{ j.instructions }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    {% endif %}
+    <a class="btn-lg primary" href="{{ url_for('planning.monteur_app') }}" style="margin-top:6px">Terug naar vandaag</a>
+  {% elif closed %}
     <div class="daysum">
       <div class="ic"><svg class="ico"><use href="#ic-check"/></svg></div>
       <h2>Mooi werk{% if monteur %}, {{ monteur.name }}{% endif %}!</h2>

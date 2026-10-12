@@ -47,7 +47,26 @@
   .leavepop .lb .ic{font-size:36px}.leavepop .lb h3{margin:8px 0 4px;font-size:19px}.leavepop .lb p{font-size:14px;margin:0 0 16px}
   .offbar{display:none;background:#7a5713;color:#fff;font-size:12.5px;font-weight:600;text-align:center;padding:8px 12px}
   /* ---------- Donkere modus ---------- */
-  :root[data-theme="dark"]{--bg:#0f1f1c;--ink:#e8efe9;--muted:#9bafa6;--soft:#1a322d;--line:#274039;--panel:#16302b}
+  :root[data-theme="dark"]{--bg:#0f1f1c;--ink:#e8efe9;--muted:#9bafa6;--soft:#1a322d;--line:#274039;--panel:#16302b;
+    --accent:#62d0c2;--accent2:#3fa596}
+  /* --accent is in donker een lichte tekstkleur; vlakken die hem als achtergrond
+     gebruiken (knoppen, nummerbolletjes) krijgen hier een eigen donkere tint. */
+  [data-theme="dark"] .btn-lg.primary,[data-theme="dark"] .jc .seq,[data-theme="dark"] .stopline .seq,
+  [data-theme="dark"] .dayswitch a.on:not(.tm){background:#1d6d66;color:#fff}
+  [data-theme="dark"] .ikrow .av,[data-theme="dark"] .callrow .cav{background:linear-gradient(135deg,#1d6d66,#2a8a80)}
+  /* Vaste donkere tekstkleuren uit de lichte modus leesbaar maken */
+  [data-theme="dark"] [style*="color:#a23d2a"]{color:#f3a593 !important}
+  [data-theme="dark"] [style*="color:#3c7a2c"],[data-theme="dark"] .donepill{color:#8fd07f !important}
+  [data-theme="dark"] [style*="color:#0f6e56"]{color:#62d0c2 !important}
+  [data-theme="dark"] [style*="color:#1e477f"]{color:#b9d2f5 !important}
+  [data-theme="dark"] .jc .box.cust,[data-theme="dark"] [style*="background:#e7f0ff"]{background:rgba(47,109,240,.18) !important;border-color:rgba(120,160,240,.35) !important;color:#b9d2f5 !important}
+  [data-theme="dark"] .lvst.open,[data-theme="dark"] .pill[style*="background:#f3e6c9"]{background:rgba(217,150,43,.2) !important;color:#f0c57c !important}
+  [data-theme="dark"] .lvst.goedgekeurd{background:rgba(115,191,82,.18);color:#a3dc8f}
+  [data-theme="dark"] .lvst.afgewezen{background:rgba(192,83,63,.22);color:#f3a593}
+  [data-theme="dark"] .jc .box.note{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  [data-theme="dark"] .jc.done{opacity:.85}
+  [data-theme="dark"] .jc.done .cl,[data-theme="dark"] .jc.done .num{color:#cfe8c2}
+  [data-theme="dark"] .loadcard .li b,[data-theme="dark"] .uren-sum .over{color:#e0bb73}
   [data-theme="dark"] body{background:#06100e}
   [data-theme="dark"] .m-tabs{background:#102420;border-top-color:#274039}
   [data-theme="dark"] .btn-lg.ghost,[data-theme="dark"] .m-tabs a.active,[data-theme="dark"] .navrow a,

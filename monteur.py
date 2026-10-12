@@ -1016,6 +1016,28 @@ def kies_bus():
     return render_template("planning/kies_bus.html", fleet=FLEET, current=session.get("bus_id"))
 
 
+_NL_DAGEN = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+_NL_MAANDEN = ["", "januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus",
+               "september", "oktober", "november", "december"]
+
+
+def _next_workday(today):
+    """Eerstvolgende werkdag (vrijdag en weekend: maandag)."""
+    d = datetime.strptime(today, "%Y-%m-%d").date() + timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
+
+def _day_jobs(conn, mid, day):
+    return conn.execute("""SELECT p.*, o.id AS oid, o.order_number, o.delivery_address, o.city, o.phone, o.instructions,
+                           o.montage_min, o.service_type, o.pakbon, o.customer_note, c.name AS client,
+                           (SELECT GROUP_CONCAT(qty || 'x ' || name, ', ') FROM order_items WHERE order_id=o.id) AS items
+                           FROM planning p JOIN orders o ON o.id=p.order_id
+                           LEFT JOIN clients c ON c.id=o.client_id
+                           WHERE p.monteur_id=? AND p.date=? ORDER BY p.sequence""", (mid, day)).fetchall()
+
+
 @bp.route("/monteur")
 def monteur_app():
     guard = login_required("monteur_app")
@@ -1047,12 +1069,24 @@ def monteur_app():
     jobs, monteur = [], None
     if mid:
         monteur = conn.execute("SELECT * FROM monteurs WHERE id=?", (mid,)).fetchone()
-        jobs = conn.execute("""SELECT p.*, o.id AS oid, o.order_number, o.delivery_address, o.city, o.phone, o.instructions,
-                               o.montage_min, o.service_type, o.pakbon, o.customer_note, c.name AS client,
-                               (SELECT GROUP_CONCAT(qty || 'x ' || name, ', ') FROM order_items WHERE order_id=o.id) AS items
-                               FROM planning p JOIN orders o ON o.id=p.order_id
-                               LEFT JOIN clients c ON c.id=o.client_id
-                               WHERE p.monteur_id=? AND p.date=? ORDER BY p.sequence""", (mid, today)).fetchall()
+        jobs = _day_jobs(conn, mid, today)
+    # Route van de volgende werkdag: alleen bekijken, om de bus te laden.
+    nd = _next_workday(today)
+    nd_iso = nd.isoformat()
+    ahead = request.args.get("dag") == "morgen"
+    next_info = {"iso": nd_iso, "tomorrow": (nd - datetime.strptime(today, "%Y-%m-%d").date()).days == 1,
+                 "dayname": _NL_DAGEN[nd.weekday()],
+                 "label": "%s %d %s" % (_NL_DAGEN[nd.weekday()], nd.day, _NL_MAANDEN[nd.month]), "count": 0}
+    jobs_next, load_list = [], []
+    if mid:
+        next_info["count"] = conn.execute("SELECT COUNT(*) FROM planning WHERE monteur_id=? AND date=?",
+                                          (mid, nd_iso)).fetchone()[0]
+        if ahead:
+            jobs_next = _day_jobs(conn, mid, nd_iso)
+            load_list = conn.execute("""SELECT oi.name, SUM(oi.qty) AS qty FROM order_items oi
+                                        JOIN planning p ON p.order_id=oi.order_id
+                                        WHERE p.monteur_id=? AND p.date=? GROUP BY oi.name ORDER BY oi.name""",
+                                     (mid, nd_iso)).fetchall()
     closed = bool(mid and conn.execute("SELECT 1 FROM route_closed WHERE monteur_id=? AND date=?",
                                        (mid, today)).fetchone())
     # Urenregistratie: entry van vandaag + maandoverzicht (live)
@@ -1094,6 +1128,7 @@ def monteur_app():
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
                            closed=closed, all_done=all_done, region=_region_for(jobs),
                            bus=bus, viewing=viewing, contacts=OFFICE_CONTACTS, client_notes=client_notes,
+                           ahead=ahead, next_info=next_info, jobs_next=jobs_next, load_list=load_list,
                            maps_ready=(integ_status("google_maps") == "verbonden"),
                            hours_today=hours_today, hours_month=hours_month,
                            month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,
