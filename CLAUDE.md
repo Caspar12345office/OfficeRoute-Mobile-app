@@ -98,18 +98,22 @@ Uitrol naar ongeveer 50 collega's in vier stappen:
    (stepper, GPS-startplicht, meten), "mijn account"-pagina.
 4. Uitrol naar iedereen, oude Oregon-database opruimen.
 
+Gedaan op 2026-10-12: echte routes en reistijden (Google, schatting zonder sleutel);
+verlof goedkeuren als recht `approve_leave` + "Mijn aanvragen" in monteur- en magazijn-app;
+Radius Velocity werkt tegen de echte API (refresh token inwisselen, Telematics-account,
+bussen op de dashboardkaart, kilometers per voertuig als schatting); donkere modus kantoor
+(keuze onderin het menu); monteurs toevoegen + automatische monteurskaart bij rol Monteur.
+
 Open:
-- Radius Velocity-koppeling (busposities) staat klaar in de kantoor-app; wacht op het
-  API-token. Instellen bij Instellingen > Koppelingen > Radius Velocity > Test verbinding.
-  Bus per monteur: eerst de eigen keuze in de monteur-app (`bus_choices`), dan de planning,
-  dan de vaste bus. Alleen getest tegen een nagebootste server, nog niet tegen de echte API.
-- Routes en reistijden (2026-10-12): elk adres wordt een exacte locatie (PDOK, anders
-  Google of OpenStreetMap; tabel `geo_cache`) en rijafstand + rijtijd komen over de weg met
-  verkeer van Google Routes (tabel `route_cache`). Route = thuisadres monteur > stops >
-  depot (Nikkelstraat 28, Breda), vertrek 08:00; beide instelbaar bij Koppelingen > Routes
-  en reistijden. Eén sleutel: Koppelingen > Google Maps (Routes API + Geocoding API aan).
-  Zonder sleutel rekent alles met een schatting en staat er "≈". Getest tegen een
-  nagebootste Google-server, nog niet met een echte sleutel.
+- Google Maps-sleutel nog niet ingevuld (Koppelingen > Google Maps): tot dan is reistijd een
+  schatting met "≈". Niet getest met een echte sleutel.
+- Radius: Caspar moet het refresh token zelf bij Koppelingen zetten en de 9 bussen met
+  kenteken onder Bussen zetten (km tellen ook zonder, maar CO2 alleen voor bekende bussen).
+- Na een deploy geeft de kantoor-app soms één keer een 500 op /login (oorzaak onbekend;
+  traceback staat in Sentry of Koppelingen > Live status > Backend Python).
+- Mogelijk: kantoor rekent met servertijd (Render = UTC); live aankomsttijden kunnen dan
+  2 uur afwijken. Nog onderzoeken.
+- Bedrijfsbank: documenten bij register-items alleen als download, nog geen "bekijken".
 - `SENTRY_DSN` nog zetten op monteur-, magazijn- en hub-service.
 - 12 accounts staan nog op het gedeelde startwachtwoord.
 
