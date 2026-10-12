@@ -109,6 +109,12 @@ herberekend) met een melding in de monteur-app bij een wijziging van de route va
 door (urenregister toont "achteraf doorgegeven"); handtekeningen wit in donkere modus
 (`.sigbox`); donkere modus in de hub; Leaflet-logo van de kaarten weg (de kleine
 OpenStreetMap-vermelding is verplicht en blijft).
+Ook op 2026-10-12: databaseverbindingen robuuster in alle apps (controle bij uitlenen,
+vergeten verbindingen na elk verzoek terug, grotere pool) tegen de terugkerende 500's;
+monteur- en magazijn-app loggen nu in via het SSO-token van de hub; "Meekijken als
+monteur" voor beheerders (`/meekijken`, alleen kijken, elke POST geweigerd); route van
+morgen in de monteur-app (`?dag=morgen`, laadlijst, bewust oranje en zonder knoppen);
+donkere modus monteur-app leesbaar (`--accent` is in donker licht).
 
 Open:
 - Google Maps-sleutel nog niet ingevuld (Koppelingen > Google Maps): tot dan is reistijd een
@@ -122,6 +128,10 @@ Open:
 - Bedrijfsbank: documenten bij register-items alleen als download, nog geen "bekijken".
 - `SENTRY_DSN` nog zetten op monteur-, magazijn- en hub-service.
 - 12 accounts staan nog op het gedeelde startwachtwoord.
+- `SSO_SECRET` controleren op monteur- en magazijn-service (gelijk aan de hub), anders
+  geeft de hub-knop nog het inlogscherm.
+- 500's: niet bevestigd dat de poolfix de oorzaak was (geen traceback gezien). Blijven
+  ze, dan Sentry of Koppelingen > Python-blok bekijken.
 
 Verbeterlijst (nog niets gekozen): testomgeving, eigen subdomeinen, "mijn account"-pagina,
 één kleurpalet in alle apps, eigen 404/500-pagina's, "wat is er nieuw"-melding, lege
