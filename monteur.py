@@ -491,6 +491,56 @@ def _leave_approver_names(conn):
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " en " + names[-1]
 
 
+# --------------------------------------------------------------------------- #
+#  Single sign-on vanuit de OfficeHub: de hub-knop stuurt een kort geldig token
+#  mee (?sso=...). Klopt het (zelfde SSO_SECRET als de hub), dan ben je meteen
+#  ingelogd, zonder wachtwoord en 2FA. Gelijk houden met de kantoor-app.
+#  Zonder SSO_SECRET doet dit niets en zie je gewoon het inlogscherm.
+# --------------------------------------------------------------------------- #
+SSO_SECRET = os.environ.get("SSO_SECRET") or ""
+
+
+def _sso_verify(tok):
+    if not SSO_SECRET:
+        return None
+    try:
+        uid, exp, sig = tok.split(".")
+    except Exception:
+        return None
+    good = hmac.new(SSO_SECRET.encode(), (uid + "." + exp).encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, good):
+        return None
+    try:
+        if int(exp) < int(time.time()):
+            return None
+    except Exception:
+        return None
+    return uid
+
+
+@bp.before_app_request
+def _sso_login():
+    tok = request.args.get("sso")
+    if not tok:
+        return None
+    uid = _sso_verify(tok)
+    if uid:
+        try:
+            conn = db()
+            row = conn.execute("SELECT id FROM users WHERE id=? AND active=1", (int(uid),)).fetchone()
+            conn.close()
+        except Exception:
+            row = None
+        if row:
+            session.permanent = True
+            session["p_user_id"] = int(uid)
+            session.pop("twofa", None)
+    args = request.args.to_dict(flat=True)
+    args.pop("sso", None)
+    q = urllib.parse.urlencode(args)
+    return redirect(request.path + (("?" + q) if q else ""))
+
+
 def user_perms(u):
     if not u:
         return set()
@@ -851,7 +901,7 @@ def login():
 @bp.route("/logout")
 def logout():
     session.pop("p_user_id", None); session.pop("twofa", None)
-    session.pop("bus_id", None); session.pop("bus_done", None)
+    session.pop("bus_id", None); session.pop("bus_done", None); session.pop("view_as", None)
     return redirect(url_for("planning.login"))
 
 
@@ -890,6 +940,63 @@ def _record_bus_choice(u, item):
         pass
 
 
+# --------------------------------------------------------------------------- #
+#  Meekijken als monteur: een beheerder (zonder eigen monteurskaart) kiest een
+#  monteur en ziet diens app zoals hij hem ziet. Alleen kijken: elke POST wordt
+#  aan de serverkant geweigerd, zodat er nooit per ongeluk iets namens de
+#  monteur gebeurt (levering afronden, klant mailen, uren indienen).
+# --------------------------------------------------------------------------- #
+_VIEW_AS_ALLOWED = {"planning.meekijken", "planning.logout", "planning.login", "planning.api_leave_seen"}
+
+
+def _can_view_as(u):
+    return bool(u and u["role"] == "beheerder" and not u["monteur_id"])
+
+
+def _view_as_id():
+    if not _can_view_as(current_user()):
+        return None
+    try:
+        return int(session.get("view_as") or 0) or None
+    except (TypeError, ValueError):
+        return None
+
+
+@bp.before_app_request
+def _view_as_readonly():
+    if request.method != "POST" or request.endpoint in _VIEW_AS_ALLOWED or not session.get("view_as"):
+        return None
+    if _can_view_as(current_user()):
+        return jsonify(ok=False, error="Je kijkt mee als monteur. Dit kan alleen de monteur zelf."), 403
+    return None
+
+
+@bp.route("/meekijken", methods=["GET", "POST"])
+def meekijken():
+    guard = login_required()
+    if guard:
+        return guard
+    if not _can_view_as(current_user()):
+        abort(403)
+    if request.method == "POST":
+        try:
+            session["view_as"] = int(request.form.get("monteur_id") or 0) or None
+        except ValueError:
+            session["view_as"] = None
+        if session.get("view_as"):
+            return redirect(url_for("planning.monteur_app"))
+    today = _today_iso()
+    conn = db()
+    monteurs = conn.execute("""SELECT m.id, m.name, m.color,
+                                      (SELECT COUNT(*) FROM planning p WHERE p.monteur_id=m.id AND p.date=?) AS stops,
+                                      (SELECT COUNT(*) FROM planning p WHERE p.monteur_id=m.id AND p.date=?
+                                         AND p.status='afgerond') AS done
+                               FROM monteurs m WHERE m.active=1 ORDER BY m.name""", (today, today)).fetchall()
+    conn.close()
+    monteurs = sorted(monteurs, key=lambda m: (0 if m["stops"] else 1, m["name"] or ""))   # met route bovenaan
+    return render_template("planning/meekijken.html", monteurs=monteurs, current=session.get("view_as"))
+
+
 @bp.route("/kies-bus", methods=["GET", "POST"])
 def kies_bus():
     guard = login_required("monteur_app")
@@ -914,13 +1021,28 @@ def monteur_app():
     guard = login_required("monteur_app")
     if guard:
         return guard
-    # Eerst een bus kiezen (of bewust overslaan) voordat het overzicht verschijnt
-    if not session.get("bus_done"):
-        return redirect(url_for("planning.kies_bus"))
     u = current_user()
+    viewing = None
+    if _can_view_as(u):
+        # Beheerder zonder eigen route: eerst kiezen bij wie je meekijkt.
+        view_mid = _view_as_id()
+        if not view_mid:
+            return redirect(url_for("planning.meekijken"))
+    elif not session.get("bus_done"):
+        # Eerst een bus kiezen (of bewust overslaan) voordat het overzicht verschijnt
+        return redirect(url_for("planning.kies_bus"))
     conn = db()
     _purge_old_customer_notes(conn)
     mid = u["monteur_id"]
+    leave_uid, bus = u["id"], _current_bus()
+    if _can_view_as(u):
+        mid = view_mid
+        vu = conn.execute("SELECT * FROM users WHERE monteur_id=? AND active=1 ORDER BY id LIMIT 1",
+                          (mid,)).fetchone()
+        leave_uid = vu["id"] if vu else 0
+        bc = conn.execute("SELECT bus_label, plate FROM bus_choices WHERE user_id=? AND date=? ORDER BY id DESC LIMIT 1",
+                          (leave_uid, _today_iso())).fetchone() if vu else None
+        bus = {"label": bc["bus_label"], "plate": bc["plate"]} if bc else None
     today = _today_iso()
     jobs, monteur = [], None
     if mid:
@@ -959,18 +1081,19 @@ def monteur_app():
         except Exception:
             last_notice = None
     # Eigen verlofaanvragen met hun status, zodat de monteur ziet wat hij heeft aangevraagd.
-    my_leave = _my_leave_overview(conn, u["id"])
+    my_leave = _my_leave_overview(conn, leave_uid)
     leave_approvers = _leave_approver_names(conn)
     conn.close()
     # Herinnering: na 20:00 en vandaag nog geen uren ingediend
-    remind_hours = bool(mid and hours_today is None and _nl_hour() >= 20)
+    remind_hours = bool(mid and hours_today is None and _nl_hour() >= 20 and not _can_view_as(u))
+    viewing = monteur if _can_view_as(u) else None
     alerts = route_alerts(mid, bool(jobs)) if mid else []
     all_done = bool(jobs) and all(j["status"] == "afgerond" for j in jobs)
     client_notes = [{"client": j["client"], "note": j["customer_note"]}
                     for j in jobs if (j["customer_note"] or "").strip()]
     return render_template("planning/monteur_app.html", monteur=monteur, jobs=jobs, alerts=alerts,
                            closed=closed, all_done=all_done, region=_region_for(jobs),
-                           bus=_current_bus(), contacts=OFFICE_CONTACTS, client_notes=client_notes,
+                           bus=bus, viewing=viewing, contacts=OFFICE_CONTACTS, client_notes=client_notes,
                            maps_ready=(integ_status("google_maps") == "verbonden"),
                            hours_today=hours_today, hours_month=hours_month,
                            month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,

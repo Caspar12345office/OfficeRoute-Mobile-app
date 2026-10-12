@@ -122,10 +122,15 @@
   .rnotice b{display:block}
   .rnotice .lst{white-space:pre-line;margin-top:6px;font-size:13px}
   [data-theme="dark"] .rnotice{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
+  .vabar{display:flex;align-items:center;gap:10px;background:var(--gold);color:#fff;border-radius:13px;padding:11px 13px;margin:12px 14px 0;font-size:13.5px;font-weight:600;box-shadow:0 6px 16px rgba(184,138,68,.3)}
+  .vabar svg{width:18px;height:18px;flex-shrink:0}
+  .vabar a{margin-left:auto;background:rgba(255,255,255,.22);border-radius:9px;padding:6px 10px;font-size:12.5px;white-space:nowrap}
+  body.viewas button:not(.va-ok){opacity:.42;pointer-events:none}
   #rnBar{display:none;position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);z-index:150;background:var(--gold);color:#fff;border-radius:14px;padding:13px 15px;font-weight:700;font-size:14px;box-shadow:0 10px 26px rgba(0,0,0,.25);cursor:pointer;text-align:center}
 {% endblock %}
 
 {% block content %}
+{% if viewing %}<div class="vabar"><svg class="ico"><use href="#ic-eye"/></svg><span>Je kijkt mee als {{ viewing.name }}. Alleen kijken, knoppen doen niets.</span><a href="{{ url_for('planning.meekijken') }}">Andere monteur</a></div>{% endif %}
 <!-- ROUTE -->
 <div class="m-pane active" id="pane-route">
   {% if closed %}
@@ -273,7 +278,7 @@
     {% endif %}
   </div>
   {% endif %}
-  <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()"><svg class="ico"><use href="#ic-moon"/></svg> Donkere modus</button>
+  <button class="btn-lg ghost va-ok" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()"><svg class="ico"><use href="#ic-moon"/></svg> Donkere modus</button>
   <a class="btn-lg ghost" href="{{ url_for('planning.logout') }}">Uitloggen</a>
   <p class="muted" style="font-size:11.5px;text-align:center;margin-top:14px">Zet de app op je beginscherm: deel-icoon <svg class="ico"><use href="#ic-arrow-right"/></svg> “Zet op beginscherm”.</p>
 </div>
@@ -357,7 +362,7 @@
     <div class="ad2">Geen stops vandaag.</div>
   {% endfor %}
   </div>
-  <button class="btn-lg ghost" onclick="document.getElementById('stopsSheet').style.display='none'">Sluiten</button>
+  <button class="btn-lg ghost va-ok" onclick="document.getElementById('stopsSheet').style.display='none'">Sluiten</button>
 </div></div>
 
 <div class="ov" id="busIssueModal"><div class="sheet">
@@ -395,7 +400,7 @@
   </div>
 </div>
 
-{% if last_notice and not last_notice.seen %}
+{% if last_notice and not last_notice.seen and not viewing %}
 <div class="leavepop" id="routePop">
   <div class="lb">
     <div class="ic"><svg class="ico"><use href="#ic-bell"/></svg></div>
@@ -573,6 +578,11 @@ function toggleGps(){var btn=document.getElementById('gpsBtn'),st=document.getEl
   else{navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;btn.textContent='Aanzetten';st.textContent='Live locatie uit';
     if(navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){fetch('{{ url_for("planning.api_location") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,live:false})});});}}
 urenPickDay();
+{% if viewing %}
+/* Meekijken: niets versturen (de server weigert het ook) en geen meldingen als gezien markeren. */
+document.body.classList.add('viewas');
+oiPost=function(){ toast('Je kijkt mee: dit kan alleen {{ viewing.name|e }} zelf.'); return Promise.resolve({ok:false,error:'Je kijkt mee.'}); };
+{% endif %}
 /* ?tab=ik opent meteen die tab (na het indienen van verlof). */
 (function(){try{var t=new URLSearchParams(location.search).get('tab');if(t&&document.getElementById('pane-'+t)){mtab(null,t);}}catch(e){}})();
 </script>

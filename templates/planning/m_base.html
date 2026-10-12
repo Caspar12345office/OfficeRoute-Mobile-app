@@ -135,7 +135,7 @@
     <h3 style="color:{{ '#3c7a2c' if ld.status=='goedgekeurd' else '#a23d2a' }}">Je aanvraag is {{ ld.status }}</h3>
     <p>{% if ld.category=='afspraak' %}Afspraak op {{ ld.date_from }}{% if ld.time_from %} ({{ ld.time_from }}-{{ ld.time_to }}){% endif %}{% else %}{{ ld.leave_type }} · {{ ld.date_from }}{% if ld.date_to and ld.date_to!=ld.date_from %} t/m {{ ld.date_to }}{% endif %}{% endif %}
     {% if ld.decision_reason %}<br><span style="color:var(--muted)">“{{ ld.decision_reason }}”</span>{% endif %}</p>
-    <button class="btn-lg primary" onclick="leaveSeen()">Begrepen</button>
+    <button class="btn-lg primary va-ok" onclick="leaveSeen()">Begrepen</button>
   </div>
 </div>
 <script>function leaveSeen(){fetch('{{ url_for("planning.api_leave_seen") }}',{method:'POST'}).then(function(){document.getElementById('leavePop').style.display='none';});}</script>
