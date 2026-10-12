@@ -941,6 +941,100 @@ def monteur_arrive(pid):
     return jsonify(ok=True)
 
 
+# --------------------------------------------------------------------------- #
+#  Verwachte aankomst voor de mail "Onze monteur is er bijna": vanaf de positie van
+#  nu (telefoon, of de bus via Radius) over de weg naar het adres van de klant, met
+#  verkeer (Google Routes). Zelfde Google-sleutel en adres-cache als de kantoor-app
+#  (gedeelde database). Zonder sleutel of positie: een schatting.
+# --------------------------------------------------------------------------- #
+GOOGLE_ROUTES_URL = os.environ.get("GOOGLE_ROUTES_URL",
+                                   "https://routes.googleapis.com/directions/v2:computeRoutes")
+_NL_POSTCODE = _re.compile(r"\b\d{4}\s?[A-Za-z]{2}\b")
+
+
+def _geo_key(q):
+    # Gelijk houden met _geo_key in de kantoor-app (gedeelde geo_cache).
+    return _re.sub(r"[^a-z0-9]+", " ", (q or "").lower()).strip()
+
+
+def _addr_query(address, postal=None, city=None):
+    # Gelijk houden met _addr_query in de kantoor-app.
+    a = (address or "").strip()
+    parts = [a] if a else []
+    flat = a.lower().replace(" ", "")
+    if postal and postal.strip() and postal.replace(" ", "").lower() not in flat:
+        parts.append(postal.strip())
+    if city and city.strip() and city.strip().lower() not in a.lower():
+        parts.append(city.strip())
+    return ", ".join(parts)
+
+
+def _dest_point(address, postal, city):
+    q = _addr_query(address, postal, city)
+    conn = db()
+    try:
+        r = conn.execute("SELECT lat,lng FROM geo_cache WHERE addr_key=?", (_geo_key(q),)).fetchone()
+    except Exception:
+        r = None
+    finally:
+        conn.close()
+    if r and r["lat"] is not None:
+        return (r["lat"], r["lng"])
+    if not _NL_POSTCODE.search(q):
+        return None            # buiten Nederland zonder cache: geen gok
+    try:
+        url = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?" + urllib.parse.urlencode(
+            {"q": q, "rows": 1, "fl": "centroide_ll"})
+        req = urllib.request.Request(url, headers={"User-Agent": "OfficeRoute/1.0"})
+        doc = json.loads(urllib.request.urlopen(req, timeout=6).read().decode("utf-8"))["response"]["docs"][0]
+        m = _re.match(r"POINT\(([-\d.]+) ([-\d.]+)\)", doc.get("centroide_ll") or "")
+        return (float(m.group(2)), float(m.group(1))) if m else None
+    except Exception:
+        return None
+
+
+def _google_key():
+    k = (os.environ.get("GOOGLE_MAPS_API_KEY") or "").strip()
+    if k:
+        return k
+    conn = db()
+    try:
+        r = conn.execute("SELECT value FROM integrations WHERE ikey='google_maps' AND field='api_key'").fetchone()
+    except Exception:
+        r = None
+    finally:
+        conn.close()
+    return ((r["value"] if r else "") or "").strip()
+
+
+def _drive_minutes(a, b):
+    """Rijtijd in minuten van a naar b: Google met verkeer, anders een schatting."""
+    key = _google_key()
+    if key:
+        try:
+            def wp(p):
+                return {"location": {"latLng": {"latitude": p[0], "longitude": p[1]}}}
+            body = {"origin": wp(a), "destination": wp(b), "travelMode": "DRIVE",
+                    "routingPreference": "TRAFFIC_AWARE", "languageCode": "nl-NL", "regionCode": "nl"}
+            req = urllib.request.Request(GOOGLE_ROUTES_URL, data=json.dumps(body).encode("utf-8"), method="POST",
+                                         headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
+                                                  "X-Goog-FieldMask": "routes.duration", "User-Agent": "OfficeRoute/1.0"})
+            data = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8") or "{}")
+            return float(str(data["routes"][0]["duration"]).rstrip("s")) / 60.0
+        except Exception:
+            pass
+    km = _dist_m(a[0], a[1], b[0], b[1]) / 1000.0 * 1.3
+    if km < 0.3:
+        return 0.0
+    return km / (30 if km < 8 else (50 if km < 25 else 75)) * 60 + 3
+
+
+def _round5(dt):
+    """Op 5 minuten afgerond, voor een rustige 'rond 10:35' in de mail."""
+    dt = dt.replace(second=0, microsecond=0)
+    return dt + timedelta(minutes=(5 - dt.minute % 5) % 5 if dt.minute % 5 >= 3 else -(dt.minute % 5))
+
+
 @bp.route("/monteur/announce/<int:pid>", methods=["POST"])
 def monteur_announce(pid):
     """'Ik kom eraan' - informeer de klant (e-mail best-effort) en log het zodat kantoor het ziet."""
@@ -948,14 +1042,29 @@ def monteur_announce(pid):
     if not u or not has_perm("monteur_app"):
         return jsonify(ok=False), 403
     conn = db()
-    p = conn.execute("""SELECT p.id, o.client_id, o.email, o.order_number, o.track_token, c.name AS client
+    p = conn.execute("""SELECT p.id, o.client_id, o.email, o.order_number, o.track_token, c.name AS client,
+                               o.delivery_address, o.postal, o.city
                         FROM planning p JOIN orders o ON o.id=p.order_id
                         LEFT JOIN clients c ON c.id=o.client_id
                         WHERE p.id=? AND p.monteur_id=?""", (pid, u["monteur_id"])).fetchone()
     if not p:
         conn.close()
         return jsonify(ok=False), 404
-    eta = (datetime.now() + timedelta(minutes=15)).strftime("%H:%M")
+    # Positie: wat de telefoon nu meestuurt, anders de laatste bekende (telefoon of bus).
+    data = request.get_json(silent=True) or {}
+    try:
+        pos = (float(data["lat"]), float(data["lng"]))
+    except (KeyError, TypeError, ValueError):
+        pos = None
+    if not pos and u["monteur_id"]:
+        r = conn.execute("SELECT lat, lng, updated_at FROM monteur_location WHERE monteur_id=?",
+                         (u["monteur_id"],)).fetchone()
+        if r and r["lat"] is not None and (r["updated_at"] or "") >= (
+                datetime.now() - timedelta(minutes=15)).isoformat(timespec="minutes"):
+            pos = (r["lat"], r["lng"])
+    dest = _dest_point(p["delivery_address"], p["postal"], p["city"])
+    mins = _drive_minutes(pos, dest) if (pos and dest) else 15
+    eta = _round5(datetime.now() + timedelta(minutes=mins)).strftime("%H:%M")
     # De volgpagina werkt op het niet-raadbare track_token, niet op het ordernummer.
     # Geen token (oudere order)? Dan liever geen knop dan een dode link.
     token = (p["track_token"] or "").strip()

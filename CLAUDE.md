@@ -87,7 +87,7 @@ PLANNING_OI_DB_PATH=/tmp/test.db python -c "..."   # SQLite met demo-seed
 
 ## Stand van zaken (bijwerken)
 
-Laatst bijgewerkt: 2026-10-09.
+Laatst bijgewerkt: 2026-10-12.
 
 Uitrol naar ongeveer 50 collega's in vier stappen:
 1. Klaarmaken: **af** (Sentry-code in alle apps, versiecode van de inlogpagina's, onaffe
@@ -103,13 +103,19 @@ Open:
   API-token. Instellen bij Instellingen > Koppelingen > Radius Velocity > Test verbinding.
   Bus per monteur: eerst de eigen keuze in de monteur-app (`bus_choices`), dan de planning,
   dan de vaste bus. Alleen getest tegen een nagebootste server, nog niet tegen de echte API.
+- Routes en reistijden (2026-10-12): elk adres wordt een exacte locatie (PDOK, anders
+  Google of OpenStreetMap; tabel `geo_cache`) en rijafstand + rijtijd komen over de weg met
+  verkeer van Google Routes (tabel `route_cache`). Route = thuisadres monteur > stops >
+  depot (Nikkelstraat 28, Breda), vertrek 08:00; beide instelbaar bij Koppelingen > Routes
+  en reistijden. Eén sleutel: Koppelingen > Google Maps (Routes API + Geocoding API aan).
+  Zonder sleutel rekent alles met een schatting en staat er "≈". Getest tegen een
+  nagebootste Google-server, nog niet met een echte sleutel.
 - `SENTRY_DSN` nog zetten op monteur-, magazijn- en hub-service.
 - 12 accounts staan nog op het gedeelde startwachtwoord.
 
 Verbeterlijst (nog niets gekozen): testomgeving, eigen subdomeinen, "mijn account"-pagina,
 één kleurpalet in alle apps, eigen 404/500-pagina's, "wat is er nieuw"-melding, lege
-staten, handleiding bijwerken, klantspeld op het echte adres, UptimeRobot,
-backup-terugzettest.
+staten, handleiding bijwerken, UptimeRobot, backup-terugzettest.
 
 ## Deze repo: monteur-app
 
@@ -122,5 +128,7 @@ backup-terugzettest.
   app op de achtergrond staat.
 - Navigeren via Google Maps en Waze (bewust geen Apple Maps). Begroeting "Hoi <naam>" in Jost.
 - Klantmail "monteur is er bijna" is een kopie van het kantoorsjabloon: houd beide gelijk.
+  De verwachte aankomst daarin komt van `_drive_minutes` (Google met verkeer, vanaf de
+  positie die de telefoon meestuurt of de laatste bekende), afgerond op 5 minuten.
 - Service worker: HTML altijd van het netwerk; de app checkt elke minuut `/version` en
   herlaadt zichzelf na een deploy.

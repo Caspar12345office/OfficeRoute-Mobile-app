@@ -394,14 +394,21 @@ function startStop(pid){
   oiPost(U_START.slice(0,-1)+pid,{}).then(function(res){
     if(res.queued){toast('Bewaard - wordt verstuurd zodra je online bent');}else{location.reload();}});
 }
-function onderwegNaar(pid){ oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).catch(function(){}); startStop(pid); }
+/* Huidige positie meesturen, zodat de klant een echte aankomsttijd krijgt (hooguit 6 s wachten). */
+function withPos(cb){
+  if(!navigator.geolocation){ cb({}); return; }
+  var done=false, t=setTimeout(function(){ if(!done){ done=true; cb({}); } }, 6000);
+  navigator.geolocation.getCurrentPosition(function(p){ if(done) return; done=true; clearTimeout(t); cb({lat:p.coords.latitude, lng:p.coords.longitude}); },
+    function(){ if(done) return; done=true; clearTimeout(t); cb({}); }, {enableHighAccuracy:true, maximumAge:60000, timeout:5000});
+}
+function onderwegNaar(pid){ withPos(function(pos){ oiPost(U_ANNOUNCE.slice(0,-1)+pid,pos).catch(function(){}); }); startStop(pid); }
 function arriveStop(pid){ oiPost(U_ARRIVE.slice(0,-1)+pid,{}).then(function(){ location.reload(); }); }
 function announce(pid, btn){
   btn.disabled=true;
-  oiPost(U_ANNOUNCE.slice(0,-1)+pid,{}).then(function(res){
+  withPos(function(pos){ oiPost(U_ANNOUNCE.slice(0,-1)+pid,pos).then(function(res){
     if(res.ok!==false){btn.classList.add('annsent');btn.textContent='✓ Klant geïnformeerd';
       toast(res.queued?'Bewaard - klant wordt geïnformeerd zodra je online bent':(res.emailed?'Klant is per e-mail geïnformeerd':'Klant geïnformeerd (staat in de planning)'));}
-    else{btn.disabled=false;toast('Mislukt - probeer opnieuw');}});
+    else{btn.disabled=false;toast('Mislukt - probeer opnieuw');}}); });
 }
 var sigCtx=null, sigDrawn=false;
 function openComplete(pid, client){
