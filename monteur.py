@@ -417,6 +417,21 @@ _LEGACY_APPROVERS = {"caspar@office-interior.nl", "aleks@office-interior.nl",
                      "stijn@office-interior.nl", "jorik@office-interior.nl"}
 
 
+def _my_leave_overview(conn, uid):
+    """Verlofoverzicht voor in de app, kort gehouden: bovenaan wat nu telt (in
+    behandeling, en goedgekeurd verlof dat nog komt; op datum), daaronder dichtgeklapt
+    de eerdere aanvragen (voorbij of afgewezen, hooguit de laatste 10)."""
+    rows = conn.execute("""SELECT id, category, leave_type, date_from, date_to, time_from, time_to, status,
+                                  decision_reason, decided_by FROM leave_requests
+                           WHERE user_id=? ORDER BY created_at DESC LIMIT 60""", (uid,)).fetchall()
+    today = _today_iso()
+    now_ids = {r["id"] for r in rows if r["status"] == "open" or (
+        r["status"] == "goedgekeurd" and ((r["date_to"] or r["date_from"] or "") >= today))}
+    now = sorted([r for r in rows if r["id"] in now_ids], key=lambda r: r["date_from"] or "")
+    past = [r for r in rows if r["id"] not in now_ids][:10]
+    return {"now": now, "past": past}
+
+
 def _leave_approver_names(conn):
     names = []
     for r in conn.execute("""SELECT name, email, role, permissions FROM users WHERE active=1
@@ -884,9 +899,7 @@ def monteur_app():
         month_total = sum((r["worked_min"] or 0) for r in hours_month)
         month_ot = sum((r["overtime_min"] or 0) for r in hours_month)
     # Eigen verlofaanvragen met hun status, zodat de monteur ziet wat hij heeft aangevraagd.
-    my_leave = conn.execute("""SELECT category, leave_type, date_from, date_to, time_from, time_to, status,
-                                      decision_reason, decided_by FROM leave_requests
-                               WHERE user_id=? ORDER BY created_at DESC LIMIT 8""", (u["id"],)).fetchall()
+    my_leave = _my_leave_overview(conn, u["id"])
     leave_approvers = _leave_approver_names(conn)
     conn.close()
     # Herinnering: na 20:00 en vandaag nog geen uren ingediend

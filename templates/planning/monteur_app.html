@@ -45,6 +45,12 @@
   .lvitem:first-of-type{border-top:0}
   .lvitem b{font-size:14px;display:block}.lvitem span{font-size:12.5px;color:var(--muted);display:block;margin-top:2px}
   .lvst{flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px}
+  .lvempty{font-size:13px;color:var(--muted);padding:10px 0}
+  .lvmore{border-top:1px solid var(--line)}
+  .lvmore summary{cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--accent);padding:11px 0}
+  .lvmore summary::-webkit-details-marker{display:none}
+  .lvmore summary::after{content:" ›";display:inline-block;transition:transform .2s}
+  .lvmore[open] summary::after{transform:rotate(90deg)}
   .lvst.open{background:#fbeccd;color:#9a6a17}.lvst.goedgekeurd{background:#e3f3da;color:#3c7a2c}.lvst.afgewezen{background:#f7e2dc;color:#a23d2a}
   .callrow{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:11px;color:var(--ink)}
   .callrow .cav{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
@@ -227,16 +233,27 @@
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'"><svg class="ico"><use href="#ic-calendar"/></svg> Verlof / afspraak aanvragen</button>
   {% macro nld(d) %}{{ (d[8:10] ~ '-' ~ d[5:7] ~ '-' ~ d[:4]) if d and d|length >= 10 else (d or '') }}{% endmacro %}
-  {% if my_leave %}
-  <div class="lvlist">
-    <h4>Mijn aanvragen</h4>
-    {% for r in my_leave %}
+  {% macro lvrow(r) %}
     <div class="lvitem">
       <div><b>{% if r.category == 'afspraak' %}Afspraak{% else %}{{ {'vrij':'Vrije dag','vakantie':'Vakantie','atv':'ATV','ziekte':'Ziek'}.get(r.leave_type, r.leave_type or 'Verlof') }}{% endif %}</b>
         <span>{{ nld(r.date_from) }}{% if r.category == 'afspraak' and r.time_from %} {{ r.time_from }}{% if r.time_to %}-{{ r.time_to }}{% endif %}{% elif r.date_to and r.date_to != r.date_from %} t/m {{ nld(r.date_to) }}{% endif %}{% if r.status != 'open' and r.decided_by %} · door {{ r.decided_by }}{% endif %}{% if r.decision_reason %} · “{{ r.decision_reason }}”{% endif %}</span></div>
       <span class="lvst {{ r.status }}">{{ {'open':'In behandeling','goedgekeurd':'Goedgekeurd','afgewezen':'Afgewezen'}.get(r.status, r.status) }}</span>
     </div>
-    {% endfor %}
+  {% endmacro %}
+  {% if my_leave.now or my_leave.past %}
+  <div class="lvlist">
+    <h4>Mijn aanvragen</h4>
+    {% for r in my_leave.now[:3] %}{{ lvrow(r) }}{% else %}<div class="lvempty">Niets in behandeling en geen komend verlof.</div>{% endfor %}
+    {% if my_leave.now|length > 3 %}
+    <details class="lvmore"><summary>Nog {{ my_leave.now|length - 3 }} tonen</summary>
+      {% for r in my_leave.now[3:] %}{{ lvrow(r) }}{% endfor %}
+    </details>
+    {% endif %}
+    {% if my_leave.past %}
+    <details class="lvmore"><summary>Eerdere aanvragen ({{ my_leave.past|length }})</summary>
+      {% for r in my_leave.past %}{{ lvrow(r) }}{% endfor %}
+    </details>
+    {% endif %}
   </div>
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" id="themeBtn" onclick="toggleTheme()"><svg class="ico"><use href="#ic-moon"/></svg> Donkere modus</button>
