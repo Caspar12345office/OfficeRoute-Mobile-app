@@ -96,10 +96,18 @@ Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Da
 alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels
 van notities, gestart/afgerond, uren. Oude rijen in de database van voor 2026-10-14 staan nog
 in UTC (niet omgezet).
+Ook op 2026-10-14: Shopify-orders met de tag `geen-officeroute` worden overgeslagen; artikelen
+(orderregels) aanpassen vanuit de route in de planning: klik op de cel "Naam · artikel"
+(`/api/order-items/<oid>`, recht `edit_planning`). Een gewijzigde regel krijgt `picked=0`, een
+nieuwe naam wordt opnieuw aan de catalogus gekoppeld en de montagetijd wordt herberekend.
 Ook op 2026-10-14: "bij klant" in de planning en op het dashboard (monteur tikte "Ik ben bij de
 klant": status blijft `onderweg`, `aangekomen_at` gezet; AT = echte aankomsttijd). Afronden in de
 monteur-app kan maar één keer (`_already_delivered`, voorwaardelijke UPDATE + `rowcount`, knop uit
 tijdens versturen); dubbele leveringen worden bij het opstarten van de kantoor-app opgeruimd.
+Ook op 2026-10-14: "Zie handtekening" bij afgeronde stops in de route, bewust voor iedereen met
+`view_planning` (de pagina Handtekeningen blijft achter `view_signatures`, de link ernaar ook):
+klein vakje met het ontvangstbewijs (`/api/delivery/<id>`, `_delivery_map`). Statusbadges staan nu
+voor de klantnaam, anders vielen ze weg achter een lange, afgekapte naam.
 
 Uitrol naar ongeveer 50 collega's in vier stappen:
 1. Klaarmaken: **af** (Sentry-code in alle apps, versiecode van de inlogpagina's, onaffe
@@ -129,6 +137,13 @@ morgen in de monteur-app (`?dag=morgen`, laadlijst, bewust oranje en zonder knop
 donkere modus monteur-app leesbaar (`--accent` is in donker licht).
 
 Open:
+- Morgen eerst live nalopen (2026-10-14 alleen lokaal getest, inloggen kon niet): AT-tijden
+  kloppen met NL-tijd, "bij klant" bij aankomst, "Zie handtekening" + vakje, artikelen
+  aanpassen vanuit de route, en of de handtekening die 10x stond nu 1x staat.
+- Nog te beslissen door Caspar: melding in de monteur-app als kantoor artikelen van een stop
+  van vandaag wijzigt; en een Shopify-webhook "Bestelling bijgewerkt" zodat de tag
+  `geen-officeroute` achteraf een nog niet geplande order uit OfficeRoute haalt.
+- Volgpagina klant blijft bij aankomst "onderweg" zeggen: zo gewenst (Caspar, 2026-10-14).
 - Google Maps-sleutel nog niet ingevuld (Koppelingen > Google Maps): tot dan is reistijd een
   schatting met "≈". Niet getest met een echte sleutel.
 - Radius: Caspar moet het refresh token zelf bij Koppelingen zetten en de 9 bussen met
