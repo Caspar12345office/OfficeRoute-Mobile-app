@@ -393,7 +393,7 @@
     <button type="button" onclick="clearSig()" style="background:none;border:0;color:var(--muted);font-size:12.5px;padding:6px 0">opnieuw tekenen</button>
   </div>
   <div id="cmErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
-  <div class="sheetacts"><button class="btn-lg ghost" onclick="document.getElementById('completeModal').style.display='none'">Annuleren</button><button class="btn-lg primary" onclick="submitComplete()">Bevestig &amp; volgende</button></div>
+  <div class="sheetacts"><button class="btn-lg ghost" onclick="document.getElementById('completeModal').style.display='none'">Annuleren</button><button class="btn-lg primary" id="cmBtn" onclick="submitComplete(this)">Bevestig &amp; volgende</button></div>
 </div></div>
 
 <div class="ov" id="leaveModal"><div class="sheet">
@@ -584,16 +584,20 @@ function openComplete(pid, client){
 function cmToggle(){var oc=document.getElementById('cmOutcome').value;document.getElementById('cmSubWrap').style.display=oc==='succesvol'?'block':'none';document.getElementById('cmSignWrap').style.display=oc==='succesvol'?'block':'none';}
 function initSig(){var cv=document.getElementById('cmSig');if(!cv)return;var r=cv.getBoundingClientRect();cv.width=r.width;cv.height=140;sigCtx=cv.getContext('2d');sigCtx.strokeStyle='#13322f';sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigDrawn=false;var dr=false,last=null;function pos(e){var t=e.touches?e.touches[0]:e,b=cv.getBoundingClientRect();return {x:t.clientX-b.left,y:t.clientY-b.top};}function s(e){dr=true;last=pos(e);e.preventDefault();}function mv(e){if(!dr)return;var p=pos(e);sigCtx.beginPath();sigCtx.moveTo(last.x,last.y);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();last=p;sigDrawn=true;e.preventDefault();}function en(){dr=false;}cv.onmousedown=s;cv.onmousemove=mv;cv.onmouseup=en;cv.onmouseleave=en;cv.ontouchstart=s;cv.ontouchmove=mv;cv.ontouchend=en;}
 function clearSig(){var cv=document.getElementById('cmSig');if(sigCtx)sigCtx.clearRect(0,0,cv.width,cv.height);sigDrawn=false;}
-function submitComplete(){
+function submitComplete(btn){
+  if(btn&&btn.disabled) return;
   var pid=document.getElementById('cmPid').value, oc=document.getElementById('cmOutcome').value;
   var sub=oc==='succesvol'?document.getElementById('cmSub').value:'', receiver=document.getElementById('cmReceiver').value.trim();
   var sig=(oc==='succesvol'&&sigDrawn)?document.getElementById('cmSig').toDataURL('image/png'):'';
   var err=document.getElementById('cmErr');
   if(oc==='succesvol'&&(!receiver||!sig)){err.textContent='Vul de naam in én laat de ontvanger tekenen.';err.style.display='block';return;}
+  /* Eén keer versturen: de knop blijft uit tot er antwoord is (dubbel tikken gaf dubbele handtekeningen). */
+  var label=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Bezig…';}
+  function again(){ if(btn){btn.disabled=false;btn.textContent=label;} }
   oiPost(U_COMPLETE.slice(0,-1)+pid,{receiver:receiver,signature:sig,outcome:oc,sub_outcome:sub}).then(function(res){
-    if(res.queued){document.getElementById('completeModal').style.display='none';toast('Levering bewaard - wordt verstuurd zodra je online bent');}
+    if(res.queued){again();document.getElementById('completeModal').style.display='none';toast('Levering bewaard - wordt verstuurd zodra je online bent');}
     else if(res.ok){location.reload();}
-    else{err.textContent=res.error||'Mislukt';err.style.display='block';}});
+    else{again();err.textContent=res.error||'Mislukt';err.style.display='block';}}).catch(function(){again();});
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
 /* Verlof indienen: eerst de datum controleren, dan versturen. De knop wordt bij elke

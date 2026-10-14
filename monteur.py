@@ -212,6 +212,9 @@ class _PgCur:
         self._cur = conn._raw.cursor(row_factory=_pg_rowfactory)
         self.lastrowid = None
         self._scalar = None
+    @property
+    def rowcount(self):
+        return self._cur.rowcount
     def execute(self, sql, params=()):
         if "last_insert_rowid()" in sql.lower():
             self._scalar = self._conn._lastid
@@ -1167,6 +1170,17 @@ def api_notices_seen():
     return jsonify(ok=True)
 
 
+
+def _already_delivered(conn, claimed, order_id):
+    """Dubbele afronding? Een dubbele tik, of de offline-wachtrij die een aanvraag opnieuw
+    stuurt die de server al had, gaf eerder dezelfde handtekening tien keer. Wie de stop
+    niet zelf op 'afgerond' zette (claimed=False) en er staat al een levering bij de
+    order, voegt niets meer toe."""
+    if claimed:
+        return False
+    return conn.execute("SELECT 1 FROM deliveries WHERE order_id=? LIMIT 1", (order_id,)).fetchone() is not None
+
+
 @bp.route("/monteur/complete/<int:pid>", methods=["POST"])
 def monteur_complete(pid):
     if not has_perm("monteur_app") and not has_perm("complete_deliveries"):
@@ -1184,8 +1198,14 @@ def monteur_complete(pid):
         conn.close()
         return jsonify(ok=False, error="Dit is niet jouw order."), 403
     if p:
-        conn.execute("UPDATE planning SET status='afgerond', afgerond_at=? WHERE id=?",
-                     (datetime.now().isoformat(timespec="seconds"), pid))
+        # Alleen de eerste aanvraag zet de stop op afgerond (in één stap, dus ook bij twee
+        # gelijktijdige tikken maar één keer).
+        claimed = conn.execute("""UPDATE planning SET status='afgerond', afgerond_at=?
+                                  WHERE id=? AND COALESCE(status,'')<>'afgerond'""",
+                               (datetime.now().isoformat(timespec="seconds"), pid)).rowcount == 1
+        if _already_delivered(conn, claimed, p["order_id"]):
+            conn.close()
+            return jsonify(ok=True, already=True)
         conn.execute("UPDATE orders SET status='afgerond', fulfilled=1, fulfilled_at=? WHERE id=?",
                      (datetime.now().isoformat(timespec="minutes"), p["order_id"]))
         conn.execute("""INSERT INTO deliveries(order_id,monteur_id,receiver,signature,outcome,sub_outcome,ts)

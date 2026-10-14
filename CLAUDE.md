@@ -96,6 +96,10 @@ Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Da
 alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels
 van notities, gestart/afgerond, uren. Oude rijen in de database van voor 2026-10-14 staan nog
 in UTC (niet omgezet).
+Ook op 2026-10-14: "bij klant" in de planning en op het dashboard (monteur tikte "Ik ben bij de
+klant": status blijft `onderweg`, `aangekomen_at` gezet; AT = echte aankomsttijd). Afronden in de
+monteur-app kan maar één keer (`_already_delivered`, voorwaardelijke UPDATE + `rowcount`, knop uit
+tijdens versturen); dubbele leveringen worden bij het opstarten van de kantoor-app opgeruimd.
 
 Uitrol naar ongeveer 50 collega's in vier stappen:
 1. Klaarmaken: **af** (Sentry-code in alle apps, versiecode van de inlogpagina's, onaffe
