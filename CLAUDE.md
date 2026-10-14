@@ -82,12 +82,20 @@ PLANNING_OI_DB_PATH=/tmp/test.db python -c "..."   # SQLite met demo-seed
 - Jinja: nooit een dict-key `items` (botst met `.items()`).
 - Een class `app` botst met de globale `.app{min-height:100vh}`.
 - Verse Render-build: de psycopg-pool valideren met snelle fallback; geen `--preload`.
+- Render draait op UTC. Elke `app.py` zet daarom bij de start `TZ` op Nederlandse tijd
+  (POSIX-regel + `time.tzset()`), zodat `datetime.now()` overal NL-tijd is. Niet weghalen:
+  de apps delen tijdstempels via de database en moeten dezelfde klok gebruiken.
 - Web-apps krijgen op de achtergrond geen GPS (Waze, scherm op slot). Daarom komen de
   busposities uit Radius Velocity (in de kantoor-app). Caspar wil geen App Store-app.
 
 ## Stand van zaken (bijwerken)
 
-Laatst bijgewerkt: 2026-10-12.
+Laatst bijgewerkt: 2026-10-14.
+
+Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Daarvoor liep
+alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels
+van notities, gestart/afgerond, uren. Oude rijen in de database van voor 2026-10-14 staan nog
+in UTC (niet omgezet).
 
 Uitrol naar ongeveer 50 collega's in vier stappen:
 1. Klaarmaken: **af** (Sentry-code in alle apps, versiecode van de inlogpagina's, onaffe
@@ -123,8 +131,6 @@ Open:
   kenteken onder Bussen zetten (km tellen ook zonder, maar CO2 alleen voor bekende bussen).
 - Na een deploy geeft de kantoor-app soms één keer een 500 op /login (oorzaak onbekend;
   traceback staat in Sentry of Koppelingen > Live status > Backend Python).
-- Mogelijk: kantoor rekent met servertijd (Render = UTC); live aankomsttijden kunnen dan
-  2 uur afwijken. Nog onderzoeken.
 - Bedrijfsbank: documenten bij register-items alleen als download, nog geen "bekijken".
 - `SENTRY_DSN` nog zetten op monteur-, magazijn- en hub-service.
 - 12 accounts staan nog op het gedeelde startwachtwoord.

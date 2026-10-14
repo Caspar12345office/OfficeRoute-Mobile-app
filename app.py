@@ -6,6 +6,15 @@ kantoorsoftware (planning). Lokaal draait hij op SQLite met een mini dev-seed.
 """
 
 import os
+import time
+
+# Nederlandse tijd voor het hele proces. Render draait op UTC en de apps rekenen en
+# bewaren met datetime.now(); zonder dit liep alles 1 tot 2 uur achter (o.a. de
+# aankomsttijden in de planning). POSIX-regel, dus geen tz-database nodig; zomertijd
+# volgt de EU-regel (laatste zondag van maart en oktober).
+if hasattr(time, "tzset"):                      # niet op Windows (lokaal al NL-tijd)
+    os.environ["TZ"] = "CET-1CEST,M3.5.0,M10.5.0/3"
+    time.tzset()
 import secrets
 from flask import Flask, request
 from monteur import bp
