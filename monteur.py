@@ -356,6 +356,11 @@ CREATE TABLE IF NOT EXISTS monteur_location(monteur_id INTEGER PRIMARY KEY, lat 
 CREATE TABLE IF NOT EXISTS deliveries(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, monteur_id INTEGER,
   receiver TEXT, signature TEXT, outcome TEXT, sub_outcome TEXT, ts TEXT);
 CREATE TABLE IF NOT EXISTS route_closed(monteur_id INTEGER, date TEXT, ts TEXT, PRIMARY KEY(monteur_id, date));
+CREATE TABLE IF NOT EXISTS declarations(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_name TEXT,
+  monteur_id INTEGER, kind TEXT, amount REAL, date TEXT, note TEXT, ukey TEXT, status TEXT DEFAULT 'ingediend',
+  mailed_to TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS declaration_photos(id INTEGER PRIMARY KEY AUTOINCREMENT, declaration_id INTEGER,
+  mime TEXT, data BYTEA, created_at TEXT);
 CREATE TABLE IF NOT EXISTS damage_photos(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, planning_id INTEGER,
   delivery_id INTEGER, monteur_id INTEGER, ukey TEXT, mime TEXT, data BYTEA, created_at TEXT);
 CREATE TABLE IF NOT EXISTS leave_requests(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_name TEXT,
@@ -674,9 +679,10 @@ def _mail_live():
     return _email_configured() and (_email_cfg().get("send_live") or "0") == "1"
 
 
-def _api_send(to, subject, text, html=None):
+def _api_send(to, subject, text, html=None, attachments=None):
     """Verstuur via Resend HTTPS-API (werkt op Render); anders SMTP (lokaal). Respecteert testmodus.
-    Leest de gedeelde 'email'-integratie (beheerd in de kantoor-app)."""
+    Leest de gedeelde 'email'-integratie (beheerd in de kantoor-app).
+    attachments = [(bestandsnaam, bytes, mime)]."""
     recips = [r for r in (to if isinstance(to, list) else [to]) if r]
     if not recips:
         return False
@@ -694,6 +700,9 @@ def _api_send(to, subject, text, html=None):
             body = {"from": frm, "to": recips, "subject": subject, "text": text, "html": html or text}
             if reply_to:
                 body["reply_to"] = reply_to
+            if attachments:
+                body["attachments"] = [{"filename": fn, "content": base64.b64encode(data).decode("ascii")}
+                                       for fn, data, _mime in attachments]
             payload = json.dumps(body).encode("utf-8")
             req = urllib.request.Request(
                 "https://api.resend.com/emails", data=payload,
@@ -723,6 +732,9 @@ def _api_send(to, subject, text, html=None):
     msg.set_content(text)
     if html:
         msg.add_alternative(html, subtype="html")
+    for fn, data, mime in (attachments or []):
+        main, _, sub = (mime or "application/octet-stream").partition("/")
+        msg.add_attachment(data, maintype=main, subtype=sub or "octet-stream", filename=fn)
     try:
         with smtplib.SMTP(host, int(c.get("smtp_port") or 587), timeout=10) as s:
             s.starttls()
@@ -1121,6 +1133,7 @@ def monteur_app():
             last_notice = None
     # Eigen verlofaanvragen met hun status, zodat de monteur ziet wat hij heeft aangevraagd.
     my_leave = _my_leave_overview(conn, leave_uid)
+    my_decl = _my_declarations(conn, leave_uid)
     leave_approvers = _leave_approver_names(conn)
     conn.close()
     # Herinnering: na 20:00 en vandaag nog geen uren ingediend
@@ -1138,6 +1151,7 @@ def monteur_app():
                            hours_today=hours_today, hours_month=hours_month,
                            month_total=month_total, month_ot=month_ot, remind_hours=remind_hours,
                            today_iso=today, my_leave=my_leave, leave_approvers=leave_approvers,
+                           my_decl=my_decl, decl_kinds=DECL_KINDS,
                            uren_min=uren_min, hours_recent=hours_recent, last_notice=last_notice)
 
 
@@ -1216,6 +1230,137 @@ def monteur_complete(pid):
                       datetime.now().isoformat(timespec="seconds")))
         conn.commit()
     conn.close()
+    return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------- #
+#  Declaraties (pin- en tolbonnetjes): monteur dient in met foto, wie het recht
+#  "Declaraties ontvangen (mail)" heeft (kantoor-app, Gebruikers) krijgt een mail.
+# --------------------------------------------------------------------------- #
+DECL_KINDS = [("pinbon", "Pinbon"), ("tolbon", "Tolbon"), ("parkeren", "Parkeren"), ("overig", "Overig")]
+MAX_DECL_PHOTOS = 3
+
+
+def _my_declarations(conn, uid):
+    if not uid:
+        return []
+    try:
+        return conn.execute("""SELECT id, kind, amount, date, note, status, created_at FROM declarations
+                               WHERE user_id=? ORDER BY id DESC LIMIT 10""", (uid,)).fetchall()
+    except Exception:
+        return []
+
+
+def _decl_recipients(conn):
+    """Wie de mail krijgt: actieve gebruikers met het vinkje "Declaraties ontvangen (mail)".
+    Bewust het opgeslagen vinkje, niet "alle rechten" van een beheerder: het is een keuze."""
+    out = []
+    for r in conn.execute("SELECT name, email, permissions FROM users WHERE active=1").fetchall():
+        try:
+            perms = set(json.loads(r["permissions"] or "[]"))
+        except Exception:
+            perms = set()
+        if "receive_declarations" in perms and (r["email"] or "").strip():
+            out.append((r["name"] or "", r["email"].strip()))
+    return out
+
+
+def _euro(v):
+    return ("€ %.2f" % (v or 0)).replace(".", ",")
+
+
+def _decl_email_html(who, kind, amount, day, note, n_photos):
+    rows = "".join(
+        '<tr><td style="padding:7px 0;color:#5f6b64;font-size:13px;width:120px;">%s</td>'
+        '<td style="padding:7px 0;color:#16302d;font-size:14px;font-weight:bold;">%s</td></tr>' % (k, _esc(v))
+        for k, v in (("Monteur", who), ("Soort", kind), ("Bedrag", amount), ("Datum", day),
+                     ("Omschrijving", note or "-"), ("Foto's", "%d als bijlage" % n_photos)))
+    return ('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e7ebe7;padding:24px 0;margin:0;">'
+            '<tr><td align="center"><table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;'
+            'background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e6ebe4;font-family:Arial,Helvetica,sans-serif;">'
+            '<tr><td style="background:#0f3d3e;padding:20px 24px;"><span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:2px;">OfficeRoute</span>'
+            '<span style="color:#cda35a;font-size:12px;"> &middot; Declaratie</span></td></tr>'
+            '<tr><td style="padding:22px 24px 8px;"><p style="margin:0 0 12px;font-size:16px;color:#16302d;">Er is een nieuwe declaratie ingediend.</p>'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + rows + '</table></td></tr>'
+            '<tr><td style="padding:14px 24px 20px;border-top:1px solid #e6ebe4;"><p style="margin:0;font-size:11px;color:#97a39d;line-height:1.6;">'
+            'Automatisch verstuurd door de monteur-app van OfficeRoute. Je krijgt deze mail omdat bij Gebruikers '
+            '"Declaraties ontvangen (mail)" voor je aan staat.</p></td></tr></table></td></tr></table>')
+
+
+@bp.route("/monteur/declaratie", methods=["POST"])
+def monteur_declaration():
+    """Declaratie indienen: soort, bedrag, datum, omschrijving en 1 tot 3 foto's van het bonnetje,
+    in één aanvraag (zo kan de offline-wachtrij hem in zijn geheel bewaren). ukey (gemaakt op de
+    telefoon) voorkomt een dubbele declaratie als de aanvraag twee keer binnenkomt."""
+    if not has_perm("monteur_app"):
+        return jsonify(ok=False, error="Geen rechten"), 403
+    u = current_user()
+    f = request.form
+    ukey = (f.get("ukey") or "").strip()[:40]
+    kinds = dict(DECL_KINDS)
+    kind = f.get("kind") or ""
+    if not ukey or kind not in kinds:
+        return jsonify(ok=False, error="Kies de soort declaratie."), 400
+    try:
+        amount = round(float((f.get("amount") or "").replace("€", "").replace(" ", "").replace(",", ".")), 2)
+    except ValueError:
+        return jsonify(ok=False, error="Vul het bedrag in, bijvoorbeeld 12,50."), 400
+    if not 0 < amount < 10000:
+        return jsonify(ok=False, error="Vul een geldig bedrag in."), 400
+    day = (f.get("date") or "").strip()
+    if not _re.match(r"^\d{4}-\d{2}-\d{2}$", day):
+        day = _today_iso()
+    note = " ".join((f.get("note") or "").split())[:300]
+    photos = []
+    for i in range(MAX_DECL_PHOTOS):
+        data = f.get("photo_%d" % i) or ""
+        if not data:
+            continue
+        if not data.startswith("data:image/jpeg;base64,"):
+            return jsonify(ok=False, error="Een foto kon niet worden gelezen."), 400
+        try:
+            raw = base64.b64decode(data.split(",", 1)[1])
+        except Exception:
+            return jsonify(ok=False, error="Een foto kon niet worden gelezen."), 400
+        if raw and len(raw) <= 4 * 1024 * 1024:
+            photos.append(raw)
+    if not photos:
+        return jsonify(ok=False, error="Maak een foto van het bonnetje."), 400
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = db()
+    try:
+        if conn.execute("SELECT 1 FROM declarations WHERE ukey=?", (ukey,)).fetchone():
+            return jsonify(ok=True, already=True)
+        did = conn.execute("""INSERT INTO declarations(user_id,user_name,monteur_id,kind,amount,date,note,ukey,status,created_at)
+                              VALUES(?,?,?,?,?,?,?,?,'ingediend',?)""",
+                           (u["id"], u["name"], u["monteur_id"], kind, amount, day, note, ukey, now)).lastrowid
+        for raw in photos:
+            conn.execute("INSERT INTO declaration_photos(declaration_id,mime,data,created_at) VALUES(?,?,?,?)",
+                         (did, "image/jpeg", raw, now))
+        conn.commit()
+        recips = _decl_recipients(conn)
+    finally:
+        conn.close()
+
+    who, label = u["name"] or "Monteur", kinds[kind]
+    nlday = "%s-%s-%s" % (day[8:10], day[5:7], day[:4])
+
+    def send():
+        subject = "Nieuwe declaratie: %s, %s %s" % (who, label.lower(), _euro(amount))
+        text = ("Er is een nieuwe declaratie ingediend.\n\nMonteur: %s\nSoort: %s\nBedrag: %s\nDatum: %s\n"
+                "Omschrijving: %s\nFoto's: %d als bijlage\n") % (who, label, _euro(amount), nlday, note or "-", len(photos))
+        att = [("declaratie-%d-%d.jpg" % (did, i + 1), raw, "image/jpeg") for i, raw in enumerate(photos)]
+        sent = _api_send([e for _n, e in recips], subject, text,
+                         _decl_email_html(who, label, _euro(amount), nlday, note, len(photos)), attachments=att)
+        if sent:
+            c2 = db()
+            try:
+                c2.execute("UPDATE declarations SET mailed_to=? WHERE id=?", (", ".join(n for n, _e in recips), did))
+                c2.commit()
+            finally:
+                c2.close()
+    if recips:
+        threading.Thread(target=send, name="declaratie-mail", daemon=True).start()
     return jsonify(ok=True)
 
 

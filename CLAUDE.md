@@ -98,7 +98,8 @@ opslaan (`_autoplan_assign`, getest: de knop geeft exact dezelfde uitkomst) + lo
 `Planning-O-I/tools/proefplanning.py` dat de live data alleen-lezen ophaalt en lokaal een HTML-rapport
 maakt (Caspar wil dit bewust niet als pagina in OfficeRoute); teamchat: taggen met `@naam` met
 pop-up voor wie getagd is (`chat_mentions`); schadefoto's bij "Beschadigd / incompleet" in de
-monteur-app, zichtbaar in kantoor (`damage_photos`, "Zie schade" in de route).
+monteur-app, zichtbaar in kantoor (`damage_photos`, "Zie schade" in de route); declaraties met foto
+in de monteur-app (tabblad Ik) met mail aan wie "Declaraties ontvangen (mail)" aan heeft.
 
 Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Daarvoor liep
 alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels

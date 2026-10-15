@@ -315,6 +315,7 @@
     <button class="btn-lg primary" style="width:auto;padding:11px 16px;font-size:13.5px" id="gpsBtn" onclick="toggleGps()">Aanzetten</button></div>
   {% endif %}
   <button class="btn-lg ghost" style="margin-bottom:10px" onclick="document.getElementById('leaveModal').style.display='flex'"><svg class="ico"><use href="#ic-calendar"/></svg> Verlof / afspraak aanvragen</button>
+  {% if monteur %}<button class="btn-lg ghost" style="margin-bottom:10px" onclick="openDecl()"><svg class="ico"><use href="#ic-doc"/></svg> Declaratie indienen</button>{% endif %}
   {% macro nld(d) %}{{ (d[8:10] ~ '-' ~ d[5:7] ~ '-' ~ d[:4]) if d and d|length >= 10 else (d or '') }}{% endmacro %}
   {% macro lvrow(r) %}
     <div class="lvitem">
@@ -335,6 +336,26 @@
     {% if my_leave.past %}
     <details class="lvmore"><summary>Eerdere aanvragen ({{ my_leave.past|length }})</summary>
       {% for r in my_leave.past %}{{ lvrow(r) }}{% endfor %}
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if my_decl %}
+  {% set kn = dict(decl_kinds) %}
+  <div class="lvlist">
+    <h4>Mijn declaraties</h4>
+    {% for d in my_decl[:3] %}
+    <div class="lvitem"><div><b>{{ kn.get(d.kind, d.kind) }} · € {{ '%.2f'|format(d.amount or 0)|replace('.', ',') }}</b>
+      <span>{{ nld(d.date) }}{% if d.note %} · {{ d.note }}{% endif %}</span></div>
+      <span class="lvst open">Ingediend</span></div>
+    {% endfor %}
+    {% if my_decl|length > 3 %}
+    <details class="lvmore"><summary>Eerdere declaraties ({{ my_decl|length - 3 }})</summary>
+      {% for d in my_decl[3:] %}
+      <div class="lvitem"><div><b>{{ kn.get(d.kind, d.kind) }} · € {{ '%.2f'|format(d.amount or 0)|replace('.', ',') }}</b>
+        <span>{{ nld(d.date) }}{% if d.note %} · {{ d.note }}{% endif %}</span></div>
+        <span class="lvst open">Ingediend</span></div>
+      {% endfor %}
     </details>
     {% endif %}
   </div>
@@ -408,6 +429,24 @@
   </div>
   <div id="cmErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
   <div class="sheetacts"><button class="btn-lg ghost" onclick="document.getElementById('completeModal').style.display='none'">Annuleren</button><button class="btn-lg primary" id="cmBtn" onclick="submitComplete(this)">Bevestig &amp; volgende</button></div>
+</div></div>
+
+<div class="ov" id="declModal"><div class="sheet">
+  <h3>Declaratie indienen</h3><div class="muted" style="font-size:12.5px;margin-bottom:4px">Bijvoorbeeld een pin- of tolbonnetje. Gaat met de foto naar kantoor.</div>
+  <label>Soort</label>
+  <select id="dcKind">{% for k, l in decl_kinds %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+  <div style="display:flex;gap:8px">
+    <div style="flex:1"><label>Bedrag (€)</label><input id="dcAmount" inputmode="decimal" placeholder="12,50" autocomplete="off"></div>
+    <div style="flex:1"><label>Datum</label><input id="dcDate" type="date"></div>
+  </div>
+  <label>Omschrijving</label><input id="dcNote" placeholder="bv. tanken Shell A16, tol Westerscheldetunnel" maxlength="300">
+  <label>Foto van het bonnetje</label>
+  <div class="dmgph" id="dcPh"></div>
+  <input type="file" id="dcFile" accept="image/*" multiple style="display:none" onchange="dcAdd(this.files);this.value=''">
+  <button type="button" class="dmgadd" id="dcBtnAdd" onclick="document.getElementById('dcFile').click()">+ Foto maken of kiezen</button>
+  <div class="muted" style="font-size:12px;margin-top:4px">Maximaal 3 foto's. Zorg dat het bedrag en de datum leesbaar zijn.</div>
+  <div id="dcErr" style="color:#a23d2a;font-size:13px;display:none;margin:6px 0"></div>
+  <div class="sheetacts"><button type="button" class="btn-lg ghost" onclick="document.getElementById('declModal').style.display='none'">Annuleren</button><button type="button" class="btn-lg primary" id="dcSend" onclick="submitDecl(this)">Indienen</button></div>
 </div></div>
 
 <div class="ov" id="leaveModal"><div class="sheet">
@@ -512,6 +551,7 @@ var U_DMGPHOTO='{{ url_for("planning.monteur_damage_photo", pid=0) }}';
 var U_ANNOUNCE='{{ url_for("planning.monteur_announce", pid=0) }}';
 var U_CLOSE='{{ url_for("planning.close_route") }}';
 var U_LEAVE='{{ url_for("planning.api_leave_request") }}';
+var U_DECL='{{ url_for("planning.monteur_declaration") }}';
 var U_BUSISSUE='{{ url_for("planning.api_bus_issue") }}';
 var U_UREN='{{ url_for("planning.monteur_uren") }}';
 var U_RECENT={{ hours_recent|tojson }}, U_TODAY='{{ today_iso }}', U_MIN='{{ uren_min }}';
@@ -673,6 +713,52 @@ function submitComplete(btn){
       oiPost(U_DMGPHOTO.slice(0,-1)+pid,{ukey:photos[i].key,data:photos[i].data}).then(function(r){ if(r&&r.queued) queued=true; next(i+1); }).catch(function(){ next(i+1); });
     })(0);
   }).catch(function(){again();});
+}
+/* Declaratie: foto's van het bonnetje op de telefoon verkleinen (zelfde als schadefoto's) en alles in
+   één keer versturen, zodat het ook zonder bereik in zijn geheel bewaard wordt. */
+var dcPhotos=[];
+function openDecl(){
+  dcPhotos=[]; dcRender();
+  document.getElementById('dcAmount').value=''; document.getElementById('dcNote').value='';
+  document.getElementById('dcDate').value='{{ today_iso }}'; document.getElementById('dcErr').style.display='none';
+  document.getElementById('declModal').style.display='flex';
+}
+function dcRender(){
+  var box=document.getElementById('dcPh'); box.innerHTML='';
+  dcPhotos.forEach(function(d,i){
+    var el=document.createElement('div'); el.className='ph';
+    el.innerHTML='<img alt="Bonnetje"><button type="button" aria-label="Foto verwijderen">×</button>';
+    el.querySelector('img').src=d;
+    el.querySelector('button').onclick=function(){ dcPhotos.splice(i,1); dcRender(); };
+    box.appendChild(el);
+  });
+  document.getElementById('dcBtnAdd').style.display=dcPhotos.length>=3?'none':'flex';
+}
+function dcAdd(files){
+  var list=Array.prototype.slice.call(files||[]);
+  (function next(){
+    if(!list.length || dcPhotos.length>=3){ dcRender(); return; }
+    dmgShrink(list.shift(), function(data){ if(data) dcPhotos.push(data); else toast('Deze foto kon niet worden gelezen'); dcRender(); next(); });
+  })();
+}
+function submitDecl(btn){
+  if(btn.disabled) return;
+  var err=document.getElementById('dcErr'), amt=document.getElementById('dcAmount').value.trim();
+  function fail(t){ err.textContent=t; err.style.display='block'; }
+  if(!/^\d+([.,]\d{1,2})?$/.test(amt.replace('€','').replace(/\s/g,''))){ fail('Vul het bedrag in, bijvoorbeeld 12,50.'); return; }
+  if(!dcPhotos.length){ fail('Maak een foto van het bonnetje.'); return; }
+  err.style.display='none';
+  var body={ukey:Date.now().toString(36)+Math.random().toString(36).slice(2,10), kind:document.getElementById('dcKind').value,
+            amount:amt, date:document.getElementById('dcDate').value, note:document.getElementById('dcNote').value};
+  dcPhotos.forEach(function(d,i){ body['photo_'+i]=d; });
+  var label=btn.textContent; btn.disabled=true; btn.textContent='Versturen…';
+  function done(){ btn.disabled=false; btn.textContent=label; }
+  oiPost(U_DECL, body).then(function(res){
+    done();
+    if(res.queued){ document.getElementById('declModal').style.display='none'; toast('Declaratie bewaard - wordt verstuurd zodra je online bent'); }
+    else if(res.ok){ document.getElementById('declModal').style.display='none'; toast('Declaratie ingediend. Kantoor krijgt hem met de foto.'); setTimeout(function(){ location.href=location.pathname+'?tab=ik'; }, 1200); }
+    else{ fail(res.error||'Indienen mislukt, probeer het opnieuw'); }
+  }).catch(function(){ done(); fail('Indienen mislukt, probeer het opnieuw'); });
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
 /* Verlof indienen: eerst de datum controleren, dan versturen. De knop wordt bij elke
