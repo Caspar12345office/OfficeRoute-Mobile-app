@@ -356,6 +356,8 @@ CREATE TABLE IF NOT EXISTS monteur_location(monteur_id INTEGER PRIMARY KEY, lat 
 CREATE TABLE IF NOT EXISTS deliveries(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, monteur_id INTEGER,
   receiver TEXT, signature TEXT, outcome TEXT, sub_outcome TEXT, ts TEXT);
 CREATE TABLE IF NOT EXISTS route_closed(monteur_id INTEGER, date TEXT, ts TEXT, PRIMARY KEY(monteur_id, date));
+CREATE TABLE IF NOT EXISTS damage_photos(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, planning_id INTEGER,
+  delivery_id INTEGER, monteur_id INTEGER, ukey TEXT, mime TEXT, data BYTEA, created_at TEXT);
 CREATE TABLE IF NOT EXISTS leave_requests(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_name TEXT,
   is_monteur INTEGER, monteur_id INTEGER, category TEXT, leave_type TEXT, date_from TEXT, date_to TEXT,
   time_from TEXT, time_to TEXT, reason TEXT, status TEXT DEFAULT 'open', decided_by TEXT, decision_reason TEXT,
@@ -1214,6 +1216,49 @@ def monteur_complete(pid):
                       datetime.now().isoformat(timespec="seconds")))
         conn.commit()
     conn.close()
+    return jsonify(ok=True)
+
+
+MAX_DAMAGE_PHOTOS = 6
+
+
+@bp.route("/monteur/damage-photo/<int:pid>", methods=["POST"])
+def monteur_damage_photo(pid):
+    """Schadefoto bij een stop (na "Beschadigd / incompleet"). Eén foto per aanvraag, zodat
+    de offline-wachtrij ze los kan bewaren en opnieuw sturen; ukey (gemaakt op de telefoon)
+    voorkomt dubbele foto's als een aanvraag twee keer binnenkomt."""
+    if not has_perm("monteur_app") and not has_perm("complete_deliveries"):
+        return jsonify(ok=False), 403
+    u = current_user()
+    ukey = (request.form.get("ukey") or "").strip()[:40]
+    data = request.form.get("data") or ""
+    if not ukey or not data.startswith("data:image/jpeg;base64,"):
+        return jsonify(ok=False, error="Geen geldige foto."), 400
+    try:
+        raw = base64.b64decode(data.split(",", 1)[1], validate=False)
+    except Exception:
+        return jsonify(ok=False, error="Geen geldige foto."), 400
+    if not raw or len(raw) > 4 * 1024 * 1024:
+        return jsonify(ok=False, error="Foto is te groot."), 400
+    conn = db()
+    try:
+        p = conn.execute("SELECT * FROM planning WHERE id=?", (pid,)).fetchone()
+        if not p:
+            return jsonify(ok=False, error="Stop niet gevonden."), 404
+        if u and u["monteur_id"] and p["monteur_id"] != u["monteur_id"]:
+            return jsonify(ok=False, error="Dit is niet jouw order."), 403
+        if conn.execute("SELECT 1 FROM damage_photos WHERE ukey=?", (ukey,)).fetchone():
+            return jsonify(ok=True, already=True)
+        if conn.execute("SELECT COUNT(*) FROM damage_photos WHERE planning_id=?", (pid,)).fetchone()[0] >= MAX_DAMAGE_PHOTOS:
+            return jsonify(ok=True, skipped=True)
+        d = conn.execute("SELECT id FROM deliveries WHERE order_id=? ORDER BY id DESC LIMIT 1", (p["order_id"],)).fetchone()
+        conn.execute("""INSERT INTO damage_photos(order_id,planning_id,delivery_id,monteur_id,ukey,mime,data,created_at)
+                        VALUES(?,?,?,?,?,?,?,?)""",
+                     (p["order_id"], pid, d["id"] if d else None, p["monteur_id"], ukey, "image/jpeg", raw,
+                      datetime.now().isoformat(timespec="seconds")))
+        conn.commit()
+    finally:
+        conn.close()
     return jsonify(ok=True)
 
 

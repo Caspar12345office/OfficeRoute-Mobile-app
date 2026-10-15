@@ -120,6 +120,11 @@
   .um-row.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
   .rnotice{display:flex;gap:10px;align-items:flex-start;background:#f3e6c9;border:1px solid #e6cf9c;color:#6b5216;border-radius:13px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
   .rnotice b{display:block}
+  .dmgph{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 4px}
+  .dmgph .ph{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--soft)}
+  .dmgph .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .dmgph .ph button{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer}
+  .dmgadd{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border:1.5px dashed var(--line);border-radius:12px;background:transparent;color:var(--accent);font:inherit;font-weight:600;cursor:pointer}
   .rnotice .lst{white-space:pre-line;margin-top:6px;font-size:13px}
   [data-theme="dark"] .rnotice{background:#2a2414;border-color:#5a4a20;color:#e7cd92}
   /* Vandaag / morgen */
@@ -387,6 +392,15 @@
   <label>Resultaat</label>
   <select id="cmOutcome" onchange="cmToggle()"><option value="succesvol">Levering succesvol</option><option value="beschadigd">Beschadigd / incompleet</option><option value="niet_thuis">Ontvanger niet thuis</option></select>
   <div id="cmSubWrap"><label>Toelichting adres</label><select id="cmSub"><option value="adres in 1x correct">Adres was in 1x correct</option><option value="adres was niet juist">Adres was niet juist</option></select></div>
+  <div id="cmDmgWrap" style="display:none">
+    <label>Wat is er beschadigd of mist er?</label>
+    <textarea id="cmDmgNote" rows="2" placeholder="bv. bureaublad gekrast, 1 poot ontbreekt"></textarea>
+    <label>Foto's van de schade</label>
+    <div class="dmgph" id="cmDmgPh"></div>
+    <input type="file" id="cmDmgFile" accept="image/*" multiple style="display:none" onchange="dmgAdd(this.files);this.value=''">
+    <button type="button" class="dmgadd" id="cmDmgBtn" onclick="document.getElementById('cmDmgFile').click()">+ Foto maken of kiezen</button>
+    <div class="muted" style="font-size:12px;margin-top:4px">Maximaal 6 foto's. Ze komen bij deze order in de kantoorsoftware.</div>
+  </div>
   <div id="cmSignWrap">
     <label>Naam ontvanger</label><input id="cmReceiver" placeholder="Naam ontvanger">
     <label>Handtekening ontvanger</label><canvas id="cmSig" width="320" height="140"></canvas>
@@ -494,6 +508,7 @@ function urenRemindGo(){document.getElementById('urenRemind').style.display='non
 var U_START='{{ url_for("planning.monteur_start", pid=0) }}';
 var U_ARRIVE='{{ url_for("planning.monteur_arrive", pid=0) }}';
 var U_COMPLETE='{{ url_for("planning.monteur_complete", pid=0) }}';
+var U_DMGPHOTO='{{ url_for("planning.monteur_damage_photo", pid=0) }}';
 var U_ANNOUNCE='{{ url_for("planning.monteur_announce", pid=0) }}';
 var U_CLOSE='{{ url_for("planning.close_route") }}';
 var U_LEAVE='{{ url_for("planning.api_leave_request") }}';
@@ -578,26 +593,86 @@ var sigCtx=null, sigDrawn=false;
 function openComplete(pid, client){
   document.getElementById('cmPid').value=pid; document.getElementById('cmClient').textContent=client;
   document.getElementById('cmOutcome').value='succesvol'; document.getElementById('cmReceiver').value='';
+  dmgPhotos=[]; dmgRender(); document.getElementById('cmDmgNote').value='';
   document.getElementById('cmErr').style.display='none'; cmToggle();
   document.getElementById('completeModal').style.display='flex'; setTimeout(initSig,60);
 }
-function cmToggle(){var oc=document.getElementById('cmOutcome').value;document.getElementById('cmSubWrap').style.display=oc==='succesvol'?'block':'none';document.getElementById('cmSignWrap').style.display=oc==='succesvol'?'block':'none';}
+/* Schadefoto's: op de telefoon verkleinen (langste zijde 1400 px, JPEG, onder 0,5 MB), zodat ze ook bij slecht
+   bereik snel gaan en in de offline-wachtrij passen. */
+var dmgPhotos=[];
+function dmgRender(){
+  var box=document.getElementById('cmDmgPh'); if(!box) return;
+  box.innerHTML='';
+  dmgPhotos.forEach(function(p,i){
+    var d=document.createElement('div'); d.className='ph';
+    d.innerHTML='<img alt="Schadefoto"><button type="button" aria-label="Foto verwijderen">×</button>';
+    d.querySelector('img').src=p.data;
+    d.querySelector('button').onclick=function(){ dmgPhotos.splice(i,1); dmgRender(); };
+    box.appendChild(d);
+  });
+  document.getElementById('cmDmgBtn').style.display=dmgPhotos.length>=6?'none':'flex';
+}
+function dmgShrink(file, cb){
+  var fr=new FileReader();
+  fr.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var max=1400, q=0.72, out='';
+      for(var tries=0; tries<5; tries++){
+        var sc=Math.min(1, max/Math.max(img.width,img.height)), cv=document.createElement('canvas');
+        cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        out=cv.toDataURL('image/jpeg',q);
+        if(out.length<450000) break;
+        max=Math.round(max*0.8); q=Math.max(0.5,q-0.07);
+      }
+      cb(out);
+    };
+    img.onerror=function(){ cb(null); };
+    img.src=fr.result;
+  };
+  fr.onerror=function(){ cb(null); };
+  fr.readAsDataURL(file);
+}
+function dmgAdd(files){
+  var list=Array.prototype.slice.call(files||[]).filter(function(f){return /^image\//.test(f.type)||!f.type;});
+  (function next(){
+    if(!list.length || dmgPhotos.length>=6){ dmgRender(); return; }
+    dmgShrink(list.shift(), function(data){
+      if(data) dmgPhotos.push({key:Date.now().toString(36)+Math.random().toString(36).slice(2,10), data:data});
+      else toast('Deze foto kon niet worden gelezen');
+      dmgRender(); next();
+    });
+  })();
+}
+function cmToggle(){var oc=document.getElementById('cmOutcome').value;document.getElementById('cmDmgWrap').style.display=oc==='beschadigd'?'block':'none';document.getElementById('cmSubWrap').style.display=oc==='succesvol'?'block':'none';document.getElementById('cmSignWrap').style.display=oc==='succesvol'?'block':'none';}
 function initSig(){var cv=document.getElementById('cmSig');if(!cv)return;var r=cv.getBoundingClientRect();cv.width=r.width;cv.height=140;sigCtx=cv.getContext('2d');sigCtx.strokeStyle='#13322f';sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigDrawn=false;var dr=false,last=null;function pos(e){var t=e.touches?e.touches[0]:e,b=cv.getBoundingClientRect();return {x:t.clientX-b.left,y:t.clientY-b.top};}function s(e){dr=true;last=pos(e);e.preventDefault();}function mv(e){if(!dr)return;var p=pos(e);sigCtx.beginPath();sigCtx.moveTo(last.x,last.y);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();last=p;sigDrawn=true;e.preventDefault();}function en(){dr=false;}cv.onmousedown=s;cv.onmousemove=mv;cv.onmouseup=en;cv.onmouseleave=en;cv.ontouchstart=s;cv.ontouchmove=mv;cv.ontouchend=en;}
 function clearSig(){var cv=document.getElementById('cmSig');if(sigCtx)sigCtx.clearRect(0,0,cv.width,cv.height);sigDrawn=false;}
 function submitComplete(btn){
   if(btn&&btn.disabled) return;
   var pid=document.getElementById('cmPid').value, oc=document.getElementById('cmOutcome').value;
-  var sub=oc==='succesvol'?document.getElementById('cmSub').value:'', receiver=document.getElementById('cmReceiver').value.trim();
+  var sub=oc==='succesvol'?document.getElementById('cmSub').value:(oc==='beschadigd'?document.getElementById('cmDmgNote').value.trim().slice(0,300):''), receiver=document.getElementById('cmReceiver').value.trim();
   var sig=(oc==='succesvol'&&sigDrawn)?document.getElementById('cmSig').toDataURL('image/png'):'';
   var err=document.getElementById('cmErr');
   if(oc==='succesvol'&&(!receiver||!sig)){err.textContent='Vul de naam in én laat de ontvanger tekenen.';err.style.display='block';return;}
   /* Eén keer versturen: de knop blijft uit tot er antwoord is (dubbel tikken gaf dubbele handtekeningen). */
   var label=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Bezig…';}
   function again(){ if(btn){btn.disabled=false;btn.textContent=label;} }
+  var photos=oc==='beschadigd'?dmgPhotos.slice():[];
   oiPost(U_COMPLETE.slice(0,-1)+pid,{receiver:receiver,signature:sig,outcome:oc,sub_outcome:sub}).then(function(res){
-    if(res.queued){again();document.getElementById('completeModal').style.display='none';toast('Levering bewaard - wordt verstuurd zodra je online bent');}
-    else if(res.ok){location.reload();}
-    else{again();err.textContent=res.error||'Mislukt';err.style.display='block';}}).catch(function(){again();});
+    if(!res.ok && !res.queued){again();err.textContent=res.error||'Mislukt';err.style.display='block';return;}
+    if(btn&&photos.length) btn.textContent='Foto\'s versturen…';
+    /* Foto's één voor één (elk apart in de wachtrij als er geen verbinding is). */
+    var queued=!!res.queued;
+    (function next(i){
+      if(i>=photos.length){
+        if(queued){again();document.getElementById('completeModal').style.display='none';toast('Levering bewaard - wordt verstuurd zodra je online bent');}
+        else{location.reload();}
+        return;
+      }
+      oiPost(U_DMGPHOTO.slice(0,-1)+pid,{ukey:photos[i].key,data:photos[i].data}).then(function(r){ if(r&&r.queued) queued=true; next(i+1); }).catch(function(){ next(i+1); });
+    })(0);
+  }).catch(function(){again();});
 }
 function lvToggle(){var afs=document.getElementById('lvCat').value==='afspraak';document.getElementById('lvTimeWrap').style.display=afs?'block':'none';document.getElementById('lvTypeWrap').style.display=afs?'none':'block';document.getElementById('lvToWrap').style.display=afs?'none':'block';}
 /* Verlof indienen: eerst de datum controleren, dan versturen. De knop wordt bij elke

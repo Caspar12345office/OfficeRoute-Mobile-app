@@ -48,6 +48,9 @@ def _load_secret_key():
 
 
 app = Flask(__name__)
+# Schadefoto's komen als tekstveld binnen (zo kan de offline-wachtrij ze bewaren); de standaard
+# grens van 500 kB per formulier is daar te krap voor.
+app.request_class.max_form_memory_size = 4 * 1024 * 1024
 app.secret_key = _load_secret_key()
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
