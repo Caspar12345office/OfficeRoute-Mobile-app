@@ -99,7 +99,8 @@ opslaan (`_autoplan_assign`, getest: de knop geeft exact dezelfde uitkomst) + lo
 maakt (Caspar wil dit bewust niet als pagina in OfficeRoute); teamchat: taggen met `@naam` met
 pop-up voor wie getagd is (`chat_mentions`); schadefoto's bij "Beschadigd / incompleet" in de
 monteur-app, zichtbaar in kantoor (`damage_photos`, "Zie schade" in de route); declaraties met foto
-in de monteur-app (tabblad Ik) met mail aan wie "Declaraties ontvangen (mail)" aan heeft.
+in de monteur-app (tabblad Ik) met mail aan wie "Declaraties ontvangen (mail) en afhandelen" aan heeft,
+en een overzicht Declaraties in kantoor (afvinken als uitbetaald). Mails blijven bewust uit.
 
 Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Daarvoor liep
 alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels
@@ -151,7 +152,9 @@ Open:
 - Live nalopen (2026-10-14 en 2026-10-15 alleen lokaal getest, inloggen kon niet): AT-tijden in
   NL-tijd, "bij klant", "Zie handtekening"/"Zie schade" + vakje, artikelen aanpassen vanuit de
   route, de handtekening die 10x stond nu 1x, taggen in de chat met twee echte accounts,
-  schadefoto's met een echte telefooncamera, donkere modus Bedrijfsbank op de live site.
+  schadefoto's met een echte telefooncamera, donkere modus Bedrijfsbank op de live site,
+  declaratie indienen met een echte telefoon en het overzicht Declaraties.
+- Declaraties: vinkje "Declaraties ontvangen (mail) en afhandelen" staat nog bij niemand aan.
 - Proefplanning nog niet met echte data gedraaid: Caspar moet de External Database URL van de
   Render-database zelf in de terminal plakken (`.venv\Scripts\python tools\proefplanning.py`).
 - Schadefoto's offline: de wachtrij op de telefoon heeft ongeveer 5 MB; bij 6 foto's zonder bereik
