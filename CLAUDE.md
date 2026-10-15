@@ -90,7 +90,15 @@ PLANNING_OI_DB_PATH=/tmp/test.db python -c "..."   # SQLite met demo-seed
 
 ## Stand van zaken (bijwerken)
 
-Laatst bijgewerkt: 2026-10-14.
+Laatst bijgewerkt: 2026-10-15.
+
+Gedaan op 2026-10-15: donkere modus in de Bedrijfsbank (zelfde palet als OfficeRoute, keuze onderin
+de zijbalk, gedeeld met de hub via `oi-hub-theme`); rekenkern van Automatisch inplannen los van het
+opslaan (`_autoplan_assign`, getest: de knop geeft exact dezelfde uitkomst) + los script
+`Planning-O-I/tools/proefplanning.py` dat de live data alleen-lezen ophaalt en lokaal een HTML-rapport
+maakt (Caspar wil dit bewust niet als pagina in OfficeRoute); teamchat: taggen met `@naam` met
+pop-up voor wie getagd is (`chat_mentions`); schadefoto's bij "Beschadigd / incompleet" in de
+monteur-app, zichtbaar in kantoor (`damage_photos`, "Zie schade" in de route).
 
 Gedaan op 2026-10-14: alle apps rekenen in Nederlandse tijd (TZ in `app.py`). Daarvoor liep
 alles op Render 2 uur achter: AT-tijden in de planning, ETA in de "onderweg"-mail, tijdstempels
@@ -139,9 +147,14 @@ morgen in de monteur-app (`?dag=morgen`, laadlijst, bewust oranje en zonder knop
 donkere modus monteur-app leesbaar (`--accent` is in donker licht).
 
 Open:
-- Morgen eerst live nalopen (2026-10-14 alleen lokaal getest, inloggen kon niet): AT-tijden
-  kloppen met NL-tijd, "bij klant" bij aankomst, "Zie handtekening" + vakje, artikelen
-  aanpassen vanuit de route, en of de handtekening die 10x stond nu 1x staat.
+- Live nalopen (2026-10-14 en 2026-10-15 alleen lokaal getest, inloggen kon niet): AT-tijden in
+  NL-tijd, "bij klant", "Zie handtekening"/"Zie schade" + vakje, artikelen aanpassen vanuit de
+  route, de handtekening die 10x stond nu 1x, taggen in de chat met twee echte accounts,
+  schadefoto's met een echte telefooncamera, donkere modus Bedrijfsbank op de live site.
+- Proefplanning nog niet met echte data gedraaid: Caspar moet de External Database URL van de
+  Render-database zelf in de terminal plakken (`.venv\Scripts\python tools\proefplanning.py`).
+- Schadefoto's offline: de wachtrij op de telefoon heeft ongeveer 5 MB; bij 6 foto's zonder bereik
+  kan dat vol raken zonder melding aan de monteur. Eventueel nog een melding toevoegen.
 - Nog te beslissen door Caspar: melding in de monteur-app als kantoor artikelen van een stop
   van vandaag wijzigt; en een Shopify-webhook "Bestelling bijgewerkt" zodat de tag
   `geen-officeroute` achteraf een nog niet geplande order uit OfficeRoute haalt.
