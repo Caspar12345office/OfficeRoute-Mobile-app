@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS deliveries(id INTEGER PRIMARY KEY AUTOINCREMENT, orde
 CREATE TABLE IF NOT EXISTS route_closed(monteur_id INTEGER, date TEXT, ts TEXT, PRIMARY KEY(monteur_id, date));
 CREATE TABLE IF NOT EXISTS declarations(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, user_name TEXT,
   monteur_id INTEGER, kind TEXT, amount REAL, date TEXT, note TEXT, ukey TEXT, status TEXT DEFAULT 'ingediend',
-  mailed_to TEXT, created_at TEXT);
+  mailed_to TEXT, created_at TEXT, paid_by TEXT, paid_at TEXT);
 CREATE TABLE IF NOT EXISTS declaration_photos(id INTEGER PRIMARY KEY AUTOINCREMENT, declaration_id INTEGER,
   mime TEXT, data BYTEA, created_at TEXT);
 CREATE TABLE IF NOT EXISTS damage_photos(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, planning_id INTEGER,

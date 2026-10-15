@@ -347,14 +347,14 @@
     {% for d in my_decl[:3] %}
     <div class="lvitem"><div><b>{{ kn.get(d.kind, d.kind) }} · € {{ '%.2f'|format(d.amount or 0)|replace('.', ',') }}</b>
       <span>{{ nld(d.date) }}{% if d.note %} · {{ d.note }}{% endif %}</span></div>
-      <span class="lvst open">Ingediend</span></div>
+      {% if d.status == 'uitbetaald' %}<span class="lvst goedgekeurd">Uitbetaald</span>{% else %}<span class="lvst open">Ingediend</span>{% endif %}</div>
     {% endfor %}
     {% if my_decl|length > 3 %}
     <details class="lvmore"><summary>Eerdere declaraties ({{ my_decl|length - 3 }})</summary>
       {% for d in my_decl[3:] %}
       <div class="lvitem"><div><b>{{ kn.get(d.kind, d.kind) }} · € {{ '%.2f'|format(d.amount or 0)|replace('.', ',') }}</b>
         <span>{{ nld(d.date) }}{% if d.note %} · {{ d.note }}{% endif %}</span></div>
-        <span class="lvst open">Ingediend</span></div>
+        {% if d.status == 'uitbetaald' %}<span class="lvst goedgekeurd">Uitbetaald</span>{% else %}<span class="lvst open">Ingediend</span>{% endif %}</div>
       {% endfor %}
     </details>
     {% endif %}
